@@ -1,0 +1,23 @@
+{
+    "tasks": [
+        {
+            "label": "npm: start",
+            "detail": "webpack-dev-server",
+            "type": "npm",
+            "script": "start",
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": {
+                "base": "$tsc",
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "ℹ ｢wdm｣: Compiling...",
+                    "endsPattern": "ℹ ｢wdm｣: Compiled successfully."
+                }
+            },
+        }
+    ]
+}

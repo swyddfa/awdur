@@ -1,0 +1,28 @@
+{
+  "name": "awdur",
+  "version": "0.1.0",
+  "description": "Simple screenwriting with fountain",
+  "main": "main.js",
+  "scripts": {
+    "start": "webpack-dev-server",
+    "build": "webpack --progress",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Alex Carney",
+  "license": "MIT",
+  "devDependencies": {
+    "css-loader": "^4.2.1",
+    "electron": "^9.1.2",
+    "file-loader": "^6.0.0",
+    "html-webpack-plugin": "^4.3.0",
+    "style-loader": "^1.2.1",
+    "ts-loader": "^8.0.2",
+    "typescript": "^3.9.7",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.20.0"
+  }
+}

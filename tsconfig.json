@@ -1,0 +1,26 @@
+{
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ],
+    "compilerOptions": {
+        "outDir": "public/",
+        "sourceMap": true,
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "target": "ES5",
+        "lib": [
+            "DOM",
+            "ES5",
+            "ES2015.Collection",
+            "ES2015.Promise"
+        ],
+        "types": [],
+        "typeRoots": [
+            "node_modules/@types"
+        ],
+        "baseUrl": "./node_modules"
+    }
+}
