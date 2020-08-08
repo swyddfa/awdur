@@ -5,12 +5,12 @@ module.exports = {
   mode: 'development',
   devtool: 'source-map',
   devServer: {
-    contentBase: path.join(__dirname, 'public'),
+    contentBase: path.join(__dirname, "dist", 'public'),
     compress: true,
     port: 9000
   },
   entry: {
-    app: "./src/index.ts",
+    app: "./src/ui/index.ts",
     "editor.worker": "monaco-editor/esm/vs/editor/editor.worker.js"
   },
   resolve: {
@@ -19,7 +19,7 @@ module.exports = {
   output: {
     globalObject: "self",
     filename: "[name].bundle.js",
-    path: path.resolve(__dirname, "public")
+    path: path.resolve(__dirname, "dist", "public")
   },
   module: {
     rules: [

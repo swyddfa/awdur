@@ -2,10 +2,11 @@
   "name": "awdur",
   "version": "0.1.0",
   "description": "Simple screenwriting with fountain",
-  "main": "main.js",
+  "main": "dist/main.js",
   "scripts": {
-    "start": "webpack-dev-server",
-    "build": "webpack --progress",
+    "start": "webpack-dev-server --config webpack.ui.config.js",
+    "build:main": "webpack --progress --config webpack.main.config.js",
+    "build:ui": "webpack --progress --config webpack.ui.config.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Alex Carney",
