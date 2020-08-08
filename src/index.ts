@@ -33,9 +33,20 @@ monaco.languages.setMonarchTokensProvider('fountain', {
   }
 })
 
-monaco.editor.create(document.body, {
+const container = document.createElement("div")
+container.className = "editor"
+document.body.append(container)
+
+let editor = monaco.editor.create(container, {
   value: EXAMPLE_SCRIPT,
   language: 'fountain',
   lineNumbers: "off",
   minimap: { enabled: false }
 })
+
+//@ts-ignore
+let resizer = new ResizeObserver(e => {
+  let dims = e[0].contentRect
+  editor.layout({ width: dims.width, height: dims.height })
+})
+resizer.observe(container)

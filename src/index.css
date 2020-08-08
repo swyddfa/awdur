@@ -1,5 +1,19 @@
-body {
-  width: 800px;
-  height: 640px;
+
+* {
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
+}
+
+body,html {
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+.editor {
+  height:100%;
+  background: red;
 }
