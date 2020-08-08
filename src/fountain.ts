@@ -1,3 +1,31 @@
+import * as monaco from "monaco-editor";
+
+export function registerFountainLang() {
+  monaco.languages.register({ id: 'fountain' })
+  monaco.languages.setMonarchTokensProvider('fountain', {
+    tokenizer: {
+      root: [
+        { include: '@sceneHeadings' },
+        { include: '@transitions' },
+        { include: '@characters' }
+      ],
+
+      sceneHeadings: [
+        [/^([eEiI][nNxX][tT])?\..*$/, 'invalid']
+      ],
+
+      characters: [
+        [/^[A-Z ]+\^?$/, 'type']
+      ],
+
+      transitions: [
+        [/>[^<]+$/, 'string'],
+        [/[A-Z ]+TO:/, 'string']
+      ]
+    }
+  })
+}
+
 export const EXAMPLE_SCRIPT = `\
 Title:
     BRICK & STEEL
