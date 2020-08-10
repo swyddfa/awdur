@@ -1,4 +1,7 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import * as filesys from 'fs'
+
+const fs = filesys.promises
 
 function createWindow() {
   // Create the browser window.
@@ -6,7 +9,7 @@ function createWindow() {
     width: 1024,
     height: 768,
     webPreferences: {
-      nodeIntegration: false,
+      nodeIntegration: true,
       enableRemoteModule: false
     }
   })
@@ -42,3 +45,8 @@ app.on('activate', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+ipcMain.handle('file-open', async () => {
+  let result = await dialog.showOpenDialog({ properties: ['openFile'] })
+  let fileContent = await fs.readFile(result.filePaths[0], {})
+  return fileContent.toString()
+})

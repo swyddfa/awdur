@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor'
-import { EXAMPLE_SCRIPT } from "./fountain";
+import { ipcRenderer } from "electron";
 
 // @ts-ignore
 self.MonacoEnvironment = {
@@ -15,8 +15,9 @@ function registerCommands(editor: monaco.editor.IStandaloneCodeEditor) {
     keybindings: [
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_O
     ],
-    run: function (ed) {
-      console.log('Opening file.')
+    run: async function (ed) {
+      let fileContent = await ipcRenderer.invoke('file-open')
+      ed.setValue(fileContent)
     }
   })
 }
@@ -24,7 +25,7 @@ function registerCommands(editor: monaco.editor.IStandaloneCodeEditor) {
 export function createEditor(container: HTMLElement) {
 
   let editor = monaco.editor.create(container, {
-    value: EXAMPLE_SCRIPT,
+    value: '',
     language: 'fountain',
     lineNumbers: "off",
     wordWrap: 'on',

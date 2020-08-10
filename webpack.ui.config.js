@@ -4,6 +4,7 @@ const HtmlWebPackPlugin = require("html-webpack-plugin")
 module.exports = {
   mode: 'development',
   devtool: 'source-map',
+  target: 'electron-renderer',
   devServer: {
     contentBase: path.join(__dirname, "dist", 'public'),
     compress: true,
