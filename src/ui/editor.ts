@@ -21,6 +21,7 @@ export function createEditor(container: HTMLElement) {
 
   editor.addAction(new FileOpenAction())
   editor.addAction(new FileSaveAction())
+  console.log(editor.getModel())
 
   //@ts-ignore
   let resizer = new ResizeObserver(e => {

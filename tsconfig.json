@@ -10,12 +10,10 @@
         "sourceMap": true,
         "module": "commonjs",
         "moduleResolution": "node",
-        "target": "ES5",
+        "target": "ES2015",
         "lib": [
             "DOM",
-            "ES5",
-            "ES2015.Collection",
-            "ES2015.Promise"
+            "ES2015",
         ],
         "types": [],
         "typeRoots": [

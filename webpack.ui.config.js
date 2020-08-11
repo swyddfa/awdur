@@ -40,6 +40,7 @@ module.exports = {
   plugins: [
     new HtmlWebPackPlugin({
       title: "Awdur",
+      template: path.join("src", "index.html")
     })
   ]
 }
