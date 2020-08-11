@@ -72,3 +72,20 @@ ipcMain.handle('file-open', async () => {
   let fileContent = await fs.readFile(result.filePaths[0], {})
   return fileContent.toString()
 })
+
+ipcMain.handle('file-save', async (event, args) => {
+  let filename = args.filename
+
+  if (!filename) {
+
+    let result = await dialog.showSaveDialog({ properties: ['showOverwriteConfirmation'] })
+    if (result.canceled) {
+      return
+    }
+
+    filename = result.filePath
+  }
+
+  await fs.writeFile(filename, args.content)
+  return { success: true }
+})
