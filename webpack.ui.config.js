@@ -1,15 +1,13 @@
 const path = require("path")
 const HtmlWebPackPlugin = require("html-webpack-plugin")
 
+const production = process.env.NODE_ENV === 'production'
+
 module.exports = {
-  mode: 'development',
-  devtool: 'source-map',
+  mode: production ? 'production' : 'development',
+  watch: !production,
+  devtool: production ? '' : 'source-map',
   target: 'electron-renderer',
-  devServer: {
-    contentBase: path.join(__dirname, "dist", 'public'),
-    compress: true,
-    port: 9000
-  },
   entry: {
     app: "./src/ui/index.ts",
     "editor.worker": "monaco-editor/esm/vs/editor/editor.worker.js"

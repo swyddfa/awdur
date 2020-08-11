@@ -1,11 +1,16 @@
 const path = require("path")
 
+const production = process.env.NODE_ENV === 'production'
+
 module.exports = {
-  mode: 'development',
+  mode: production ? 'production' : 'development',
+  devtool: production ? '' : 'source-map',
   target: 'electron-main',
-  devtool: 'source-map',
   entry: {
     app: "./src/main/main.ts",
+  },
+  node: {
+    __dirname: false
   },
   resolve: {
     extensions: [".ts", ".js"]
