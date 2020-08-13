@@ -16,19 +16,33 @@ export class AppMain extends HTMLElement {
     welcome.addEventListener("open-script", () => this.openScript())
 
     document.body.append(welcome)
+    document.body.addEventListener("new-script", () => this.newScript())
+    document.body.addEventListener("open-script", () => this.openScript())
+    document.body.addEventListener("save-script", () => this.saveScript())
   }
-
-
 
   newScript() {
     this.closeWelcomeScreen()
-    this.editor = createEditor(document.body)
+    let editor = this.getOrCreateEditor()
   }
 
   async openScript() {
-    let fileContent = await ipcRenderer.invoke("file-open")
+    let result = await ipcRenderer.invoke("file-open")
+    if (result.canceled) {
+      return
+    }
+
     this.closeWelcomeScreen()
-    this.editor = createEditor(document.body, fileContent)
+    this.editor = this.getOrCreateEditor()
+    this.editor.setValue(result.content)
+  }
+
+  async saveScript() {
+    let content = this.editor.getValue()
+    let result = await ipcRenderer.invoke("file-save", { filname: undefined, content: content })
+    if (!result.success) {
+      alert("Save failed!")
+    }
   }
 
   closeWelcomeScreen() {
@@ -36,5 +50,14 @@ export class AppMain extends HTMLElement {
     if (welcome) {
       document.body.removeChild(welcome)
     }
+  }
+
+  getOrCreateEditor(): editor.IStandaloneCodeEditor {
+    if (this.editor) {
+      return this.editor
+    }
+
+    this.editor = createEditor(document.body)
+    return this.editor
   }
 }

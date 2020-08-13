@@ -9,9 +9,9 @@ export class FileOpenAction implements editor.IActionDescriptor {
     KeyMod.CtrlCmd | KeyCode.KEY_O,
   ]
 
-  async run(editor: editor.ICodeEditor, ...args: any[]): Promise<void> {
-    let fileContent = await ipcRenderer.invoke('file-open')
-    editor.setValue(fileContent)
+  run(editor: editor.ICodeEditor, ...args: any[]) {
+    let container = editor.getContainerDomNode()
+    container.dispatchEvent(new CustomEvent("open-script"))
   }
 }
 
@@ -23,11 +23,8 @@ export class FileSaveAction implements editor.IActionDescriptor {
     KeyMod.CtrlCmd | KeyCode.KEY_S
   ]
 
-  async run(editor: editor.ICodeEditor, ...args: any[]): Promise<void> {
-    let fileContent = editor.getValue()
-    let result = await ipcRenderer.invoke('file-save', { filename: undefined, content: fileContent })
-    if (!result.success) {
-      alert("Save failed!")
-    }
+  run(editor: editor.ICodeEditor, ...args: any[]) {
+    let container = editor.getContainerDomNode()
+    container.dispatchEvent(new CustomEvent("save-script"))
   }
 }

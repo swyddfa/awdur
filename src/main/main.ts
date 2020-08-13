@@ -69,8 +69,18 @@ app.on('activate', () => {
 // -- Frontend/Backend IPC
 ipcMain.handle('file-open', async () => {
   let result = await dialog.showOpenDialog({ properties: ['openFile'] })
-  let fileContent = await fs.readFile(result.filePaths[0], {})
-  return fileContent.toString()
+  if (result.canceled) {
+    return { canceled: true }
+  }
+
+  let filename = result.filePaths[0]
+  let fileContent = await fs.readFile(filename, {})
+
+  return {
+    canceled: false,
+    filename: filename,
+    content: fileContent.toString()
+  }
 })
 
 ipcMain.handle('file-save', async (event, args) => {
