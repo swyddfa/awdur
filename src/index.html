@@ -3,29 +3,33 @@
 
 <head>
   <meta charset="utf-8" />
-  <title><%= htmlWebpackPlugin.options.title %> -- Templated</title>
+  <title><%= htmlWebpackPlugin.options.title %></title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body,
+    html {
+      height: 100%;
+      background: #eee;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    .editor {
+      height: 100%;
+    }
+  </style>
   <%= htmlWebpackPlugin.tags.headTags %>
 </head>
 
 <body>
 
-  <template id="welcome-screen">
-    <style>
-      .welcome {
-        background: grey;
-        width: 25vw;
-        height: 25vh;
-        margin: calc(25% - 12.5vh) calc(50% - 12.5vw);
-        display: flex;
-      }
-    </style>
-    <div class="welcome">
-      <button>New Script</button>
-      <button>Open Script</button>
-    </div>
-  </template>
-
-  <%= htmlWebpackPlugin.tags.bodyTags %>
 </body>
 
 </html>

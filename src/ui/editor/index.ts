@@ -1,5 +1,9 @@
-import * as monaco from 'monaco-editor';
-import { FileOpenAction, FileSaveAction } from './editing/actions';
+import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
+import { FileOpenAction, FileSaveAction } from './actions';
+import { registerFountainLang } from './fountain';
+
+
+registerFountainLang()
 
 // @ts-ignore
 self.MonacoEnvironment = {
@@ -10,7 +14,7 @@ self.MonacoEnvironment = {
 
 export function createEditor(container: HTMLElement) {
 
-  let editor = monaco.editor.create(container, {
+  let scriptEditor = editor.create(container, {
     value: '',
     language: 'fountain',
     lineNumbers: "off",
@@ -19,17 +23,16 @@ export function createEditor(container: HTMLElement) {
   })
 
 
-  editor.addAction(new FileOpenAction())
-  editor.addAction(new FileSaveAction())
-  console.log(editor.getModel())
+  scriptEditor.addAction(new FileOpenAction())
+  scriptEditor.addAction(new FileSaveAction())
 
   //@ts-ignore
   let resizer = new ResizeObserver(e => {
     let dims = e[0].contentRect
-    editor.layout({ width: dims.width, height: dims.height })
+    scriptEditor.layout({ width: dims.width, height: dims.height })
   })
   resizer.observe(container)
 
 
-  return editor
+  return scriptEditor
 }
