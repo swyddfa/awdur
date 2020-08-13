@@ -2,7 +2,6 @@ import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import { FileOpenAction, FileSaveAction } from './actions';
 import { registerFountainLang } from './fountain';
 
-
 registerFountainLang()
 
 // @ts-ignore
@@ -12,10 +11,10 @@ self.MonacoEnvironment = {
   }
 }
 
-export function createEditor(container: HTMLElement) {
+export function createEditor(container: HTMLElement, contents?: string) {
 
   let scriptEditor = editor.create(container, {
-    value: '',
+    value: contents ? contents : '',
     language: 'fountain',
     lineNumbers: "off",
     wordWrap: 'on',

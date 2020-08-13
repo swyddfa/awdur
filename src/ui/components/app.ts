@@ -1,5 +1,6 @@
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api'
 import { createEditor } from "../editor"
+import { ipcRenderer } from 'electron'
 
 export class AppMain extends HTMLElement {
   static readonly ELEMENT_NAME = 'app-main'
@@ -11,19 +12,29 @@ export class AppMain extends HTMLElement {
 
   connectedCallback() {
     const welcome = document.createElement("welcome-screen")
-    welcome.addEventListener("new-script", this.onNewScript.bind(this))
-    welcome.addEventListener("open-script", this.onOpenScript.bind(this))
+    welcome.addEventListener("new-script", () => this.newScript())
+    welcome.addEventListener("open-script", () => this.openScript())
 
     document.body.append(welcome)
   }
 
-  onNewScript() {
-    const welcome = document.querySelector("welcome-screen")
-    document.body.removeChild(welcome)
+
+
+  newScript() {
+    this.closeWelcomeScreen()
     this.editor = createEditor(document.body)
   }
 
-  onOpenScript() {
+  async openScript() {
+    let fileContent = await ipcRenderer.invoke("file-open")
+    this.closeWelcomeScreen()
+    this.editor = createEditor(document.body, fileContent)
+  }
 
+  closeWelcomeScreen() {
+    const welcome = document.querySelector("welcome-screen")
+    if (welcome) {
+      document.body.removeChild(welcome)
+    }
   }
 }
