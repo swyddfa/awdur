@@ -2,10 +2,10 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "npm: start",
+            "label": "yarn: start",
             "detail": "Start developing.",
-            "type": "npm",
-            "script": "start",
+            "type": "shell",
+            "command": "yarn run start",
             "isBackground": true,
             "group": {
                 "kind": "build",
