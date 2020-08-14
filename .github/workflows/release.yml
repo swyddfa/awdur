@@ -12,14 +12,29 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Should Release?
+      id: dorelease
+      run: |
+        ./scripts/should-release.sh
+
+
     - name: Setup Node
       uses: actions/setup-node@v1
       with:
         node-version: '12'
+      if: steps.dorelease.outputs.yes
+
+    - name: Setup Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+      if: steps.dorelease.outputs.yes
 
     - run: |
         python --version
-        npm badcommandcausecrash
+        python -m pip install --upgrade pip
+      if: steps.dorelease.outputs.yes
+
 
     - name: Export release info
       id: info
@@ -30,6 +45,7 @@ jobs:
          echo "::set-output name=VERSION::$version"
          echo "::set-env name=RELEASE_DATE::$release_date"
          echo "::set-output name=RELEASE_DATE::$release_date"
+      if: steps.dorelease.outputs.yes
 
     - name: Tag Release
       run: |
@@ -45,9 +61,12 @@ jobs:
         EOF
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: steps.dorelease.outputs.yes
 
     - name: Install Dependencies
       run: yarn install
+      if: steps.dorelease.outputs.yes
 
     - name: Build Packages
       run: yarn run dist
+      if: steps.dorelease.outputs.yes
