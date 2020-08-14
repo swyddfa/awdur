@@ -20,5 +20,5 @@ if [ -z "$kind" ]; then
 else
     echo "Cutting ${kind} release!"
     echo "::set-output name=yes::true"
-    echo "::set-output name=kind::${kind}"
+    echo "::set-env name=RELEASE_KIND::${kind}"
 fi

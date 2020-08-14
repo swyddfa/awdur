@@ -40,11 +40,10 @@ jobs:
     - name: Prepare Release
       id: info
       run: |
-         echo "Preparing ${kind} release"
-         bumpversion $kind
-         release_date=$(date +%Y-%m-%d)
+         echo "Preparing ${RELEASE_KIND} release"
 
-         git push origin --tags
+         bumpversion ${RELEASE_KIND}
+         release_date=$(date +%Y-%m-%d)
 
          echo "::set-env name=VERSION::$version"
          echo "::set-output name=VERSION::$version"
@@ -63,16 +62,5 @@ jobs:
 
     - name: Tag Release
       run: |
-        commit=$(git rev-parse HEAD)
-        # POST a new ref to repo via Github API
-        curl -s -X POST https://api.github.com/repos/${{ github.repository }}/git/refs \
-        -H "Authorization: token $GITHUB_TOKEN" \
-        -d @- << EOF
-        {
-          "ref": "refs/tags/v$VERSION",
-          "sha": "$commit"
-        }
-        EOF
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git push origin --tags
       if: steps.dorelease.outputs.yes
