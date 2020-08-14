@@ -8,6 +8,12 @@ interface FileOpenResult {
   content: string
 }
 
+interface FileSaveResult {
+  success: boolean,
+  filename: string,
+  content: string
+}
+
 class Application {
 
   private container: HTMLElement
@@ -34,6 +40,8 @@ class Application {
 
   newScript() {
     this.initEditor()
+    let script = { filename: 'Untitled', content: '' }
+    this.editor.open(script)
   }
 
   async openScript() {
@@ -47,11 +55,21 @@ class Application {
   }
 
   async saveScript() {
-    let content = this.editor.getScript()
-    let result = await ipcRenderer.invoke("file-save", { filename: undefined, content: content })
+    let script = this.editor.getActiveScript()
+    if (!script) {
+      return
+    }
+
+    if (script.filename.match(/Untitled.*/)) {
+      script.filename = undefined
+    }
+
+    let result: FileSaveResult = await ipcRenderer.invoke("file-save", script)
     if (!result.success) {
       alert("Save failed!")
     }
+
+    this.editor.open(result)
   }
 
   private initEditor() {

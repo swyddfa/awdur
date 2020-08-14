@@ -151,5 +151,5 @@ ipcMain.handle('file-save', async (event, args) => {
   }
 
   await fs.writeFile(filename, args.content)
-  return { success: true }
+  return { success: true, filename: filename, content: args.content }
 })
