@@ -17,6 +17,35 @@ jobs:
       with:
         node-version: '12'
 
+    - run: |
+        python --version
+        npm badcommandcausecrash
+
+    - name: Export release info
+      id: info
+      run: |
+         version=$(jq -r .version package.json)
+         release_date=$(date +%Y-%m-%d)
+         echo "::set-env name=VERSION::$version"
+         echo "::set-output name=VERSION::$version"
+         echo "::set-env name=RELEASE_DATE::$release_date"
+         echo "::set-output name=RELEASE_DATE::$release_date"
+
+    - name: Tag Release
+      run: |
+        commit=$(git rev-parse HEAD)
+        # POST a new ref to repo via Github API
+        curl -s -X POST https://api.github.com/repos/${{ github.repository }}/git/refs \
+        -H "Authorization: token $GITHUB_TOKEN" \
+        -d @- << EOF
+        {
+          "ref": "refs/tags/v$VERSION",
+          "sha": "$commit"
+        }
+        EOF
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Install Dependencies
       run: yarn install
 

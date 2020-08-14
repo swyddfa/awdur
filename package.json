@@ -1,8 +1,9 @@
 {
   "name": "awdur",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Simple screenwriting with fountain",
   "main": "dist/main.js",
+  "private": true,
   "scripts": {
     "start": "npm run build:main && npm run build:ui",
     "build": "NODE_ENV='production' webpack --progress --config webpack.main.config.js && NODE_ENV='production' webpack --progress --config webpack.ui.config.js",
