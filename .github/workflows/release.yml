@@ -123,5 +123,5 @@ jobs:
       uses: snapcore/action-publish@v1
       with:
         store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
-        snap: ${{ steps.assets.outputs.snap }}
+        snap: build/${{ steps.assets.outputs.snap }}
         release: stable
