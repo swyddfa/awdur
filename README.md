@@ -1,5 +1,7 @@
 # Awdur
 
+**Awdur is in very early development, no guarantees are made**
+
 A simple Electron app for writing scripts in the [Fountain][fountain] markup format
 based on the [Monaco Editor][monaco-editor] from [VSCode][vscode].
 
