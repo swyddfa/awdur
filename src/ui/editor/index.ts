@@ -58,6 +58,7 @@ export class ScriptEditor {
     let script = editor.createModel(file.content, 'fountain', Uri.parse(file.filename))
     this.scripts.set(file.filename, script)
     this.editor.setModel(script)
+    this.editor.getContainerDomNode().dispatchEvent(new CustomEvent("title", { detail: file.filename }))
   }
 
   getActiveScript(): ScriptFile | undefined {

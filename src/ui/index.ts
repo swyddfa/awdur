@@ -31,6 +31,7 @@ class Application {
     this.container.addEventListener("new-script", () => this.newScript())
     this.container.addEventListener("open-script", () => this.openScript())
     this.container.addEventListener("save-script", () => this.saveScript())
+    this.container.addEventListener("title", (event: CustomEvent) => this.setTitle(event.detail))
 
     // And the event handlers from electron's main process.
     ipcRenderer.on("new-script", () => this.newScript())
@@ -70,6 +71,10 @@ class Application {
     }
 
     this.editor.open(result)
+  }
+
+  setTitle(path: string) {
+    document.title = `${path} - Awdur`
   }
 
   private initEditor() {
