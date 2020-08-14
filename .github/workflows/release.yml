@@ -24,6 +24,7 @@ jobs:
         node-version: '12'
       if: steps.dorelease.outputs.yes
 
+
     - name: Setup Python
       uses: actions/setup-python@v1
       with:
@@ -33,18 +34,30 @@ jobs:
     - run: |
         python --version
         python -m pip install --upgrade pip
+        python -m pip install bump2version
       if: steps.dorelease.outputs.yes
 
-
-    - name: Export release info
+    - name: Prepare Release
       id: info
       run: |
-         version=$(jq -r .version package.json)
+         bumpversion $kind
          release_date=$(date +%Y-%m-%d)
+
+         git push origin --tags
+
          echo "::set-env name=VERSION::$version"
          echo "::set-output name=VERSION::$version"
+
          echo "::set-env name=RELEASE_DATE::$release_date"
          echo "::set-output name=RELEASE_DATE::$release_date"
+      if: steps.dorelease.outputs.yes
+
+    - name: Install Dependencies
+      run: yarn install
+      if: steps.dorelease.outputs.yes
+
+    - name: Build Packages
+      run: yarn run dist
       if: steps.dorelease.outputs.yes
 
     - name: Tag Release
@@ -61,12 +74,4 @@ jobs:
         EOF
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      if: steps.dorelease.outputs.yes
-
-    - name: Install Dependencies
-      run: yarn install
-      if: steps.dorelease.outputs.yes
-
-    - name: Build Packages
-      run: yarn run dist
       if: steps.dorelease.outputs.yes
