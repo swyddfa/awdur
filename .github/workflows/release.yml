@@ -118,3 +118,10 @@ jobs:
         asset_name: ${{ steps.assets.outputs.snap }}
         asset_content_type: application/octet-stream
       if: steps.dorelease.outputs.yes
+
+    - name: Upload to Snapstore
+      uses: snapcore/action-publish@v1
+      with:
+        store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
+        snap: ${{ steps.assets.outputs.snap }}
+        release: stable
