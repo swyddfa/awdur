@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import * as chokidar from "chokidar";
 import * as express from 'express';
 import * as filesys from 'fs';
@@ -7,6 +7,7 @@ import * as path from 'path';
 // Use the promise based fs api.
 const fs = filesys.promises
 
+const DEVLEOPMENT = process.env.NODE_ENV !== 'production'
 const staticFiles = path.resolve(__dirname, "public")
 const port = 3000
 
@@ -40,13 +41,66 @@ function createWindow() {
 
   // If we're developing, setup live reload of the browser window.
   console.log("env:", process.env.NODE_ENV)
-  if (process.env.NODE_ENV !== 'production') {
+  if (DEVLEOPMENT) {
     chokidar.watch(staticFiles).on('change', (evt, path) => {
       win.webContents.reload()
     })
   }
 
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New',
+          accelerator: 'CmdOrCtrl+N',
+          click() {
+            win.webContents.send('new-script')
+          }
+        },
+        {
+          label: 'Open',
+          accelerator: 'CmdOrCtrl+O',
+          click() {
+            win.webContents.send("open-script")
+          }
+        },
+        {
+          label: 'Save',
+          accelerator: 'CmdOrCtrl+S',
+          click() {
+            win.webContents.send("save-script")
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Exit',
+          click() {
+            app.quit()
+          }
+        }
+      ]
+    },
+    ...(DEVLEOPMENT ? [
+      {
+        label: 'Develop',
+        submenu: [
+          {
+            label: 'Open Developer Tools',
+            click() {
+              win.webContents.openDevTools()
+            }
+          }
+        ]
+      }
+    ] : []),
+    {
+      label: 'About'
+    }
+  ])
+  Menu.setApplicationMenu(menu)
 }
+
 // -- Application lifecycle
 app.whenReady().then(() => {
   startFileServer().then(() => {

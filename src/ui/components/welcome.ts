@@ -38,12 +38,12 @@ export class WelcomeScreen extends HTMLElement {
 
     const newScript = shadow.getElementById("new");
     newScript.addEventListener("click", () => {
-      this.dispatchEvent(new CustomEvent("new-script"))
+      this.parentElement.dispatchEvent(new CustomEvent("new-script"))
     })
 
     const openScript = shadow.getElementById("open")
     openScript.addEventListener("click", () => {
-      this.dispatchEvent(new CustomEvent("open-script"))
+      this.parentElement.dispatchEvent(new CustomEvent("open-script"))
     })
   }
 }

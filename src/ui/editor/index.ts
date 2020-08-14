@@ -11,27 +11,43 @@ self.MonacoEnvironment = {
   }
 }
 
-export function createEditor(container: HTMLElement, contents?: string) {
+export interface ScriptFile {
+  filename: string,
+  content: string
+}
 
-  let scriptEditor = editor.create(container, {
-    value: contents ? contents : '',
-    language: 'fountain',
-    lineNumbers: "off",
-    wordWrap: 'on',
-    minimap: { enabled: false }
-  })
+export class ScriptEditor {
 
+  private editor: editor.IStandaloneCodeEditor
 
-  scriptEditor.addAction(new FileOpenAction())
-  scriptEditor.addAction(new FileSaveAction())
+  constructor(container: HTMLElement) {
+    let edit = editor.create(container, {
+      value: '',
+      language: 'fountain',
+      lineNumbers: 'off',
+      wordWrap: 'on',
+      minimap: { enabled: false }
+    })
 
-  //@ts-ignore
-  let resizer = new ResizeObserver(e => {
-    let dims = e[0].contentRect
-    scriptEditor.layout({ width: dims.width, height: dims.height })
-  })
-  resizer.observe(container)
+    edit.addAction(new FileOpenAction())
+    edit.addAction(new FileSaveAction())
 
+    //@ts-ignore
+    let resizer = new ResizeObserver(e => {
+      let dimensions = e[0].contentRect
+      edit.layout({ width: dimensions.width, height: dimensions.height })
+    })
+    resizer.observe(container)
 
-  return scriptEditor
+    this.editor = edit
+  }
+
+  open(result: ScriptFile) {
+    this.editor.setValue(result.content)
+  }
+
+  getScript(): string {
+    return this.editor.getValue()
+  }
+
 }

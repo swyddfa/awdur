@@ -1,9 +1,7 @@
 import { WelcomeScreen } from "./welcome";
-import { AppMain } from "./app";
 
 export function registerComponents() {
   let components = [
-    AppMain,
     WelcomeScreen
   ]
 
