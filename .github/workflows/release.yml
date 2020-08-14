@@ -48,6 +48,9 @@ jobs:
          bumpversion ${RELEASE_KIND}
          release_date=$(date +%Y-%m-%d)
 
+         version=$(jq -r .version package.json)
+         echo "Version: $version"
+
          echo "::set-env name=VERSION::$version"
          echo "::set-output name=VERSION::$version"
 
@@ -60,11 +63,58 @@ jobs:
       if: steps.dorelease.outputs.yes
 
     - name: Build Packages
-      run: yarn run dist
+      run: |
+        yarn run dist
+        ls build/
       if: steps.dorelease.outputs.yes
 
     - name: Tag Release
       run: |
         git push origin release
         git push origin --tags
+      if: steps.dorelease.outputs.yes
+
+    - name: Export release assets
+      id: assets
+      run: |
+        deb=$(find build/ -name '*.deb' -exec basename {} \;)
+        echo "::set-output name=deb::$deb"
+
+        snap=$(find build/ -name '*.snap' -exec basename {} \;)
+        echo "::set-output name=snap::$snap"
+
+      if: steps.dorelease.outputs.yes
+
+    - name: Create Release
+      id: release
+      uses: actions/create-release@v1.0.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.info.outputs.VERSION }}
+        release_name: V${{ steps.info.outputs.VERSION}} - ${{ steps.info.outputs.RELEASE_DATE }}
+        draft: false
+        prerelease: ${{ github.ref == 'refs/heads/develop' }}
+      if: steps.dorelease.outputs.yes
+
+    - name: Upload Deb Release Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.release.outputs.upload_url }}
+        asset_path: build/${{ steps.assets.outputs.deb }}
+        asset_name: ${{ steps.assets.outputs.deb }}
+        asset_content_type: application/octet-stream
+      if: steps.dorelease.outputs.yes
+
+    - name: Upload Snap Release Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.release.outputs.upload_url }}
+        asset_path: build/${{ steps.assets.outputs.snap }}
+        asset_name: ${{ steps.assets.outputs.snap }}
+        asset_content_type: application/octet-stream
       if: steps.dorelease.outputs.yes
