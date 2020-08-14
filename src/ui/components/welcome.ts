@@ -10,7 +10,8 @@ let template = () => html`
   .content {
     padding: 2rem;
     background: white;
-    border-radius: 5px
+    border-radius: 5px;
+    box-shadow: 2px 2px #ddd;
   }
 
   h1 {text-align: center}
