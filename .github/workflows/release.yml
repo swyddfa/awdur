@@ -65,5 +65,6 @@ jobs:
 
     - name: Tag Release
       run: |
+        git push origin release
         git push origin --tags
       if: steps.dorelease.outputs.yes
