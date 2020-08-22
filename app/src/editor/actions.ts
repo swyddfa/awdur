@@ -1,29 +1,28 @@
-import { editor, KeyCode, KeyMod } from 'monaco-editor/esm/vs/editor/editor.api';
-import { ipcRenderer } from "electron";
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-export class FileOpenAction implements editor.IActionDescriptor {
+export class FileOpenAction implements monaco.editor.IActionDescriptor {
   id = 'awdur-file-open'
   label = 'Open File'
 
   keybindings = [
-    KeyMod.CtrlCmd | KeyCode.KEY_O,
+    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_O,
   ]
 
-  run(editor: editor.ICodeEditor, ...args: any[]) {
+  run(editor: monaco.editor.ICodeEditor, ...args: any[]) {
     let container = editor.getContainerDomNode()
     container.dispatchEvent(new CustomEvent("open-script"))
   }
 }
 
-export class FileSaveAction implements editor.IActionDescriptor {
+export class FileSaveAction implements monaco.editor.IActionDescriptor {
   id = 'awdur-file-save'
   label = 'Save'
 
   keybindings = [
-    KeyMod.CtrlCmd | KeyCode.KEY_S
+    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_S
   ]
 
-  run(editor: editor.ICodeEditor, ...args: any[]) {
+  run(editor: monaco.editor.ICodeEditor, ...args: any[]) {
     let container = editor.getContainerDomNode()
     container.dispatchEvent(new CustomEvent("save-script"))
   }

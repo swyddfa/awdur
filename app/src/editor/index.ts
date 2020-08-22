@@ -1,4 +1,4 @@
-import { editor, Uri } from 'monaco-editor/esm/vs/editor/editor.api';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import { FileOpenAction, FileSaveAction } from './actions';
 import { registerFountainLang } from './fountain';
 
@@ -18,12 +18,12 @@ export interface ScriptFile {
 
 export class ScriptEditor {
 
-  private editor: editor.IStandaloneCodeEditor
-  private scripts: Map<string, editor.ITextModel>
+  private editor: monaco.editor.IStandaloneCodeEditor
+  private scripts: Map<string, monaco.editor.ITextModel>
 
   constructor(container: HTMLElement) {
 
-    let edit = editor.create(container, {
+    let edit = monaco.editor.create(container, {
       value: '',
       language: 'fountain',
       lineNumbers: 'off',
@@ -55,7 +55,7 @@ export class ScriptEditor {
       return
     }
 
-    let script = editor.createModel(file.content, 'fountain', Uri.parse(file.filename))
+    let script = monaco.editor.createModel(file.content, 'fountain', monaco.Uri.parse(file.filename))
     this.scripts.set(file.filename, script)
     this.editor.setModel(script)
     this.editor.getContainerDomNode().dispatchEvent(new CustomEvent("title", { detail: file.filename }))
