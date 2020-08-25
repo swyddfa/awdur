@@ -66,6 +66,76 @@ function generateSceneTestCases(): string[] {
 }
 
 describe("Fountain: Tokenizer", () => {
+  // https://fountain.io/syntax#section-action
+  describe('action', () => {
+    let testCases = [
+      'The car rolled to a stop.'
+    ]
+
+    testCases.forEach(testCase => {
+      it(`action: ${testCase}`, () => {
+
+        let tokens = monaco.editor.tokenize(testCase, 'fountain')
+        expect(tokens.length).to.equal(1)
+
+        let line = tokens[0]
+        expect(line.length).to.equal(1)
+
+        let t = line[0]
+        expect(t.language).to.equal('fountain')
+        expect(t.type).to.equal('action.fountain')
+      })
+    })
+  })
+
+  // https://fountain.io/syntax#section-character
+  describe("characters", () => {
+    let testCases = [
+      "ALICE",
+      "MYSTERIOUS FIGURE",
+      "BOB^",
+      "CHARLIE ^",
+      "@McCLANE",
+    ]
+
+    testCases.forEach(testCase => {
+      it(`character: ${testCase}`, () => {
+
+        let tokens = monaco.editor.tokenize(testCase, 'fountain')
+        expect(tokens.length).to.equal(1)
+
+        let line = tokens[0]
+        expect(line.length).to.equal(1)
+
+        let t = line[0]
+        expect(t.language).to.equal('fountain')
+        expect(t.type).to.equal('character.fountain')
+      })
+    })
+  })
+
+  // https://fountain.io/syntax#section-lyrics
+  describe('lyrics', () => {
+    let testCases = [
+      "~Here I go again on my own",
+      "~ Going down the only road I've ever known"
+    ]
+
+    testCases.forEach(testCase => {
+      it(`lyric: ${testCase}`, () => {
+
+        let tokens = monaco.editor.tokenize(testCase, 'fountain')
+        expect(tokens.length).to.equal(1)
+
+        let line = tokens[0]
+        expect(line.length).to.equal(1)
+
+        let t = line[0]
+        expect(t.language).to.equal('fountain')
+        expect(t.type).to.equal('lyric.fountain')
+      })
+    })
+  })
 
   //https://fountain.io/syntax#section-slug
   describe("scenes", () => {
@@ -87,34 +157,12 @@ describe("Fountain: Tokenizer", () => {
     })
   })
 
-  describe("characters", () => {
-    let testCases = [
-      "ALICE",
-      "MYSTERIOUS FIGURE",
-      "BOB^",
-      "CHARLIE ^"
-    ]
-
-    testCases.forEach(testCase => {
-      it(`character: ${testCase}`, () => {
-
-        let tokens = monaco.editor.tokenize(testCase, 'fountain')
-        expect(tokens.length).to.equal(1)
-
-        let line = tokens[0]
-        expect(line.length).to.equal(1)
-
-        let t = line[0]
-        expect(t.language).to.equal('fountain')
-        expect(t.type).to.equal('character.fountain')
-      })
-    })
-  })
-
+  // https://fountain.io/syntax#section-trans
   describe("transition", () => {
     let testCases = [
+      "CUT TO:",
       "> FADE TO BLACK",
-      "CUT TO:"
+      "> Burn to White.",
     ]
 
     testCases.forEach(testCase => {
@@ -129,27 +177,6 @@ describe("Fountain: Tokenizer", () => {
         let t = line[0]
         expect(t.language).to.equal('fountain')
         expect(t.type).to.equal('transition.fountain')
-      })
-    })
-  })
-
-  describe('action', () => {
-    let testCases = [
-      'The car rolled to a stop.'
-    ]
-
-    testCases.forEach(testCase => {
-      it(`action: ${testCase}`, () => {
-
-        let tokens = monaco.editor.tokenize(testCase, 'fountain')
-        expect(tokens.length).to.equal(1)
-
-        let line = tokens[0]
-        expect(line.length).to.equal(1)
-
-        let t = line[0]
-        expect(t.language).to.equal('fountain')
-        expect(t.type).to.equal('action.fountain')
       })
     })
   })

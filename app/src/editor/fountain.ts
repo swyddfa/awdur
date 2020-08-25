@@ -8,17 +8,20 @@ export function registerFountainLang() {
       root: [
         { include: '@sceneHeadings' },
         { include: '@transitions' },
-        { include: '@characters' }
+        { include: '@characters' },
+        [/~.*$/, 'lyric']
       ],
 
       sceneHeadings: [
-        [/^int\.? .*$/, 'scene'],
+        [/^[iI][nN][tT]\.? .*$/, 'scene'],
         [/^[eE][xXsS][tT]\.? .*$/, 'scene'],
+        [/^[iI][nN][tT]\.?\/[eE][xX][tT]\.? .*$/, 'scene'],
         [/^\..*$/, 'scene']
       ],
 
       characters: [
-        [/^[A-Z ]+\^?$/, 'character']
+        [/^[A-Z ]+\^?$/, 'character'],
+        [/^@.*$/, 'character'],
       ],
 
       transitions: [
