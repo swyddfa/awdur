@@ -21,13 +21,11 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: '12'
-      if: steps.dorelease.outputs.yes
 
     - name: Setup Python
       uses: actions/setup-python@v1
       with:
         python-version: 3.7
-      if: steps.dorelease.outputs.yes
 
     - name: Test App
       run: |
