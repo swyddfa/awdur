@@ -9,14 +9,14 @@ DEPLOY_URL=
 
 echo "GITHUB_REF: ${GITHUB_REF}"
 
-if [ "${GITHUB_REF}" = '/refs/heads/release' ]; then
+if [ "${GITHUB_REF}" = 'refs/heads/release' ]; then
     RELEASE_KIND='release'
     SNAP_CHANNEL='stable'
     DEPLOY_URL='stable'
     echo "::set-output name=release::true"
 fi
 
-if [ "${GITHUB_REF}" = '/refs/heads/develop' ]; then
+if [ "${GITHUB_REF}" = 'refs/heads/develop' ]; then
 
     SNAP_CHANNEL='candidate'
     DEPLOY_URL='latest'
