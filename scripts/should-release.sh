@@ -21,7 +21,7 @@ if [ "${GITHUB_REF}" = 'refs/heads/develop' ]; then
     SNAP_CHANNEL='candidate'
     DEPLOY_URL='latest'
 
-    message=$(git show HEAD --pretty=format:%s | tr '[:upper:]' '[:lower:]')
+    message=$(git log HEAD --pretty=format:'%s' | head -n 1 | tr '[:upper:]' '[:lower:]')
     echo "Commit message: ${message}"
 
     case $message in
