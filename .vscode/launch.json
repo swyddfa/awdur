@@ -2,7 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Main Process",
+            "name": "Debug Firefox",
+            "type": "firefox",
+            "request": "launch",
+            "reAttach": true,
+            "url": "http://localhost:9000/",
+            "webRoot": "${workspaceFolder}/app/public",
+            "preLaunchTask": "${defaultBuildTask}"
+        },
+        {
+            "name": "Debug Electron Main",
             "type": "node",
             "request": "launch",
             "cwd": "${workspaceFolder}",
@@ -13,8 +22,7 @@
             "args": [
                 "."
             ],
-            "outputCapture": "std",
-            "preLaunchTask": "${defaultBuildTask}"
+            "outputCapture": "std"
         }
     ]
 }

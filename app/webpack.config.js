@@ -1,24 +1,28 @@
 const path = require("path")
 const HtmlWebPackPlugin = require("html-webpack-plugin")
+const MonacoWebPackPlugin = require('monaco-editor-webpack-plugin')
 
 const production = process.env.NODE_ENV === 'production'
 
 module.exports = {
   mode: production ? 'production' : 'development',
-  watch: !production,
   devtool: production ? '' : 'source-map',
-  target: 'electron-renderer',
+  target: 'web',
   entry: {
-    app: "./src/ui/index.ts",
-    "editor.worker": "monaco-editor/esm/vs/editor/editor.worker.js"
+    app: './src/index.ts'
   },
   resolve: {
-    extensions: [".ts", ".js"]
+    extensions: [".js", ".ts"]
+  },
+  devServer: {
+    contentBase: path.join(__dirname, "public"),
+    compress: true,
+    port: 9000
   },
   output: {
     globalObject: "self",
     filename: "[name].bundle.js",
-    path: path.resolve(__dirname, "dist", "public")
+    path: path.resolve(__dirname, "public")
   },
   module: {
     rules: [
@@ -41,6 +45,9 @@ module.exports = {
     new HtmlWebPackPlugin({
       title: "Awdur",
       template: path.join("src", "index.html")
+    }),
+    new MonacoWebPackPlugin({
+      languages: []
     })
   ]
 }

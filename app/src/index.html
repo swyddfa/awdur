@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title><%= htmlWebpackPlugin.options.title %></title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body,
+    html {
+      height: 100%;
+      background: #eee;
+    }
+
+    body {
+      /*overflow: hidden;*/
+      display: grid;
+      grid-template-columns: 1fr 3fr;
+      grid-template-rows: 5rem auto 2rem;
+      grid-template-areas:
+        "header header"
+        "sidebar main"
+        "footer footer";
+    }
+
+    header {
+      grid-area: header;
+
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+
+    }
+
+    aside {
+      grid-area: sidebar;
+    }
+
+    main {
+      grid-area: main;
+    }
+
+    footer {
+      grid-area: footer;
+    }
+  </style>
+  <%= htmlWebpackPlugin.tags.headTags %>
+</head>
+
+<body>
+  <header>
+    <h2>Awdur</h2>
+  </header>
+  <aside>Sidebar</aside>
+  <main></main>
+  <footer>Footer</footer>
+</body>
+
+</html>
