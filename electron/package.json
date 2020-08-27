@@ -1,6 +1,7 @@
 {
   "name": "awdur",
   "version": "0.0.6",
+  "homepage": "https://github.com/alcarney/awdur",
   "description": "Simple screenwriting with fountain",
   "main": "dist/main.js",
   "private": true,
