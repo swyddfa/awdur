@@ -7,6 +7,8 @@ RELEASE_KIND=
 SNAP_CHANNEL=
 DEPLOY_URL=
 
+echo "GITHUB_REF: ${GITHUB_REF}"
+
 if [ "${GITHUB_REF}" = '/refs/heads/release' ]; then
     RELEASE_KIND='release'
     SNAP_CHANNEL='stable'
@@ -18,7 +20,9 @@ if [ "${GITHUB_REF}" = '/refs/heads/develop' ]; then
 
     SNAP_CHANNEL='candidate'
     DEPLOY_URL='latest'
+
     message=$(git show HEAD --pretty=format:%s | tr '[:upper:]' '[:lower:]')
+    echo "Commit message: ${message}"
 
     case $message in
         major*)
