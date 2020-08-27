@@ -76,7 +76,7 @@ jobs:
          bumpversion ${RELEASE_KIND}
          release_date=$(date +%Y-%m-%d)
 
-         version=$(jq -r .version package.json)
+         version=$(jq -r .version app/package.json)
          echo "Version: $version"
 
          git push origin ${GITHUB_REF}
