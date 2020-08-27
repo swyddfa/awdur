@@ -1,0 +1,34 @@
+{
+    "name": "awdur",
+    "version": "0.0.0",
+    "description": "The core screenwriting application",
+    "private": true,
+    "scripts": {
+        "start": "webpack-dev-server",
+        "build": "NODE_ENV='production' webpack --progress --config webpack.config.js"
+    },
+    "author": {
+        "name": "Alex Carney",
+        "email": "alcarneyme@gmail.com"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "lit-html": "^1.3.0",
+        "monaco-editor": "^0.20.0"
+    },
+    "devDependencies": {
+        "@cypress/webpack-preprocessor": "^5.4.4",
+        "@types/cypress": "^1.1.3",
+        "css-loader": "^4.2.1",
+        "cypress": "^5.0.0",
+        "file-loader": "^6.0.0",
+        "html-webpack-plugin": "^4.3.0",
+        "monaco-editor-webpack-plugin": "^1.9.0",
+        "style-loader": "^1.2.1",
+        "ts-loader": "^8.0.2",
+        "typescript": "^4.0.2",
+        "webpack": "^4.44.1",
+        "webpack-cli": "^3.3.12",
+        "webpack-dev-server": "^3.11.0"
+    }
+}

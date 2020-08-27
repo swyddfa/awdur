@@ -1,26 +1,32 @@
-import * as monaco from "monaco-editor";
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 export function registerFountainLang() {
   monaco.languages.register({ id: 'fountain' })
   monaco.languages.setMonarchTokensProvider('fountain', {
+    defaultToken: 'action',
     tokenizer: {
       root: [
         { include: '@sceneHeadings' },
         { include: '@transitions' },
-        { include: '@characters' }
+        { include: '@characters' },
+        [/~.*$/, 'lyric']
       ],
 
       sceneHeadings: [
-        [/^([eEiI][nNxX][tT])?\..*$/, 'invalid']
+        [/^[iI][nN][tT]\.? .*$/, 'scene'],
+        [/^[eE][xXsS][tT]\.? .*$/, 'scene'],
+        [/^[iI][nN][tT]\.?\/[eE][xX][tT]\.? .*$/, 'scene'],
+        [/^\..*$/, 'scene']
       ],
 
       characters: [
-        [/^[A-Z ]+\^?$/, 'type']
+        [/^[A-Z ]+\^?$/, 'character'],
+        [/^@.*$/, 'character'],
       ],
 
       transitions: [
-        [/>[^<]+$/, 'string'],
-        [/[A-Z ]+TO:/, 'string']
+        [/>[^<]+$/, 'transition'],
+        [/[A-Z ]+TO:/, 'transition']
       ]
     }
   })

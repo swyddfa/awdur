@@ -6,6 +6,9 @@
             "detail": "Start developing.",
             "type": "shell",
             "command": "yarn run start",
+            "options": {
+                "cwd": "${workspaceRoot}/app"
+            },
             "isBackground": true,
             "group": {
                 "kind": "build",
@@ -15,8 +18,8 @@
                 "base": "$tsc",
                 "background": {
                     "activeOnStart": true,
-                    "beginsPattern": "Hash: [a-f0-9]+",
-                    "endsPattern": "\\s+[+]?\\s+[0-9]+ (hidden\\s)?modules?"
+                    "beginsPattern": "ℹ ｢wdm｣: Compiling...",
+                    "endsPattern": "ℹ ｢wdm｣: Compiled successfully."
                 }
             },
         }

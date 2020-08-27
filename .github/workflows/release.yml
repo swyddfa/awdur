@@ -1,37 +1,65 @@
-name: Release
+name: CI
 
 on:
+  pull_request:
+    branches:
+    - develop
+    - release
+
   push:
     branches:
+    - develop
     - release
 
 jobs:
-  Release:
+  Build:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+
+    - name: Setup Node
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+
+    - name: Setup Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+
+    - name: Test Appplication
+      run: |
+        set -e
+
+        cd app
+        yarn install
+        yarn build
+
+        python -m http.server -d public 8000 &
+        ./node_modules/.bin/cypress run
+
+        cd ..
+
+    - name: Test Electron
+      run: |
+        set -e
+
+        cd electron
+        yarn install
+        yarn build
+
+        cd ..
 
     - name: Should Release?
       id: dorelease
       run: |
         ./scripts/should-release.sh
 
-
-    - name: Setup Node
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12'
-      if: steps.dorelease.outputs.yes
-
-
-    - name: Setup Python
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.7
-      if: steps.dorelease.outputs.yes
-
-    - run: |
+    - name: Install Python Tools
+      run: |
         python --version
         python -m pip install --upgrade pip
         python -m pip install bump2version
@@ -51,6 +79,9 @@ jobs:
          version=$(jq -r .version package.json)
          echo "Version: $version"
 
+         git push origin ${GITHUB_REF}
+         git push origin --tags
+
          echo "::set-env name=VERSION::$version"
          echo "::set-output name=VERSION::$version"
 
@@ -58,32 +89,44 @@ jobs:
          echo "::set-output name=RELEASE_DATE::$release_date"
       if: steps.dorelease.outputs.yes
 
-    - name: Install Dependencies
-      run: yarn install
-      if: steps.dorelease.outputs.yes
-
-    - name: Build Packages
+    - name: Package
       run: |
-        yarn run dist
-        ls build/
-      if: steps.dorelease.outputs.yes
+        set -e
+        cd electron
 
-    - name: Tag Release
-      run: |
-        git push origin release
-        git push origin --tags
-      if: steps.dorelease.outputs.yes
+        yarn dist
+        ls build
+
+        cd ..
 
     - name: Export release assets
       id: assets
       run: |
-        deb=$(find build/ -name '*.deb' -exec basename {} \;)
+        deb=$(find electron/build/ -name '*.deb' -exec basename {} \;)
+        echo $deb
         echo "::set-output name=deb::$deb"
 
-        snap=$(find build/ -name '*.snap' -exec basename {} \;)
+        snap=$(find electron/build/ -name '*.snap' -exec basename {} \;)
+        echo $snap
         echo "::set-output name=snap::$snap"
 
-      if: steps.dorelease.outputs.yes
+    - name: Upload Site Artifact
+      uses: actions/upload-artifact@v1.0.0
+      with:
+          name: 'app'
+          path: app/public
+
+    - name: Upload Deb Artifact
+      uses: actions/upload-artifact@v1.0.0
+      with:
+          name: 'deb'
+          path: electron/build/${{ steps.assets.outputs.deb }}
+
+    - name: Upload Snap Artifact
+      uses: actions/upload-artifact@v1.0.0
+      with:
+          name: 'snap'
+          path: electron/build/${{ steps.assets.outputs.snap }}
 
     - name: Create Release
       id: release
@@ -94,34 +137,44 @@ jobs:
         tag_name: v${{ steps.info.outputs.VERSION }}
         release_name: v${{ steps.info.outputs.VERSION}} - ${{ steps.info.outputs.RELEASE_DATE }}
         draft: false
-        prerelease: ${{ github.ref == 'refs/heads/develop' }}
+        prerelease: steps.dorelease.outputs.develop
       if: steps.dorelease.outputs.yes
 
-    - name: Upload Deb Release Asset
+    - name: Publish Deb
       uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.release.outputs.upload_url }}
-        asset_path: build/${{ steps.assets.outputs.deb }}
+        asset_path: electron/build/${{ steps.assets.outputs.deb }}
         asset_name: ${{ steps.assets.outputs.deb }}
         asset_content_type: application/octet-stream
       if: steps.dorelease.outputs.yes
 
-    - name: Upload Snap Release Asset
+    - name: Publish Snap
       uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.release.outputs.upload_url }}
-        asset_path: build/${{ steps.assets.outputs.snap }}
+        asset_path: electron/build/${{ steps.assets.outputs.snap }}
         asset_name: ${{ steps.assets.outputs.snap }}
         asset_content_type: application/octet-stream
       if: steps.dorelease.outputs.yes
 
-    - name: Upload to Snapstore
+    - name: Publish to Snapstore
       uses: snapcore/action-publish@v1
       with:
         store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
-        snap: build/${{ steps.assets.outputs.snap }}
-        release: stable
+        snap: electron/build/${{ steps.assets.outputs.snap }}
+        release: ${{ steps.dorelease.outputs.snap_channel }}
+      if: steps.dorelease.outputs.yes
+
+    - name: Publish App
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: app/public
+        TARGET_FOLDER: ${{ steps.dorelease.outputs.deploy_url }}
+      if: steps.dorelease.outputs.yes

@@ -6,9 +6,7 @@ module.exports = {
   mode: production ? 'production' : 'development',
   devtool: production ? '' : 'source-map',
   target: 'electron-main',
-  entry: {
-    app: "./src/main/main.ts",
-  },
+  entry: './src/main.ts',
   node: {
     __dirname: false
   },
