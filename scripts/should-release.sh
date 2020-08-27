@@ -14,7 +14,7 @@ if [ "${GITHUB_REF}" = '/refs/heads/release' ]; then
     echo "::set-output name=release::true"
 fi
 
-if [ "${GITHUB_REF}" = '/refs/heads/develop' ]
+if [ "${GITHUB_REF}" = '/refs/heads/develop' ]; then
 
     SNAP_CHANNEL='candidate'
     DEPLOY_URL='latest'
