@@ -79,7 +79,7 @@ jobs:
          version=$(jq -r .version app/package.json)
          echo "Version: $version"
 
-         git push origin --all
+         git push origin ${GIT_BRANCH}
          git push origin --tags
 
          echo "::set-env name=VERSION::$version"
