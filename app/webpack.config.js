@@ -1,4 +1,5 @@
 const path = require("path")
+// const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const HtmlWebPackPlugin = require("html-webpack-plugin")
 const MonacoWebPackPlugin = require('monaco-editor-webpack-plugin')
 
@@ -42,8 +43,8 @@ module.exports = {
     ]
   },
   plugins: [
+    //new BundleAnalyzerPlugin(),
     new HtmlWebPackPlugin({
-      title: "Awdur",
       template: path.join("src", "index.html")
     }),
     new MonacoWebPackPlugin({
