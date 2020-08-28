@@ -1,6 +1,6 @@
 /// <reference types="cypress" />
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-import { registerFountainLang } from "../../../src/editor/fountain";
+import { registerFountainLang } from "../../../src/components/editor/fountain";
 
 // Ensure the fountain language is registered
 registerFountainLang()

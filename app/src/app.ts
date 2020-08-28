@@ -1,10 +1,11 @@
 import { registerComponents } from "./components";
+import { FountainEditor } from "./components/editor";
 import './styles.css'
 
 export abstract class Application {
 
   private container: HTMLElement
-  private editor: ScriptEditor
+  private editor: FountainEditor
 
   constructor(container: HTMLElement) {
     this.container = container
@@ -32,6 +33,7 @@ export abstract class Application {
       welcome.remove()
     }
 
-    this.editor = new ScriptEditor(this.container);
+    this.editor = <FountainEditor>document.createElement("fountain-editor")
+    this.container.appendChild(this.editor)
   }
 }

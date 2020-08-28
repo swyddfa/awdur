@@ -1,7 +1,9 @@
 import { WelcomeScreen } from "./welcome";
+import { FountainEditor } from "./editor";
 
 export function registerComponents() {
   let components = [
+    FountainEditor,
     WelcomeScreen
   ]
 
