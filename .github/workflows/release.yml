@@ -50,6 +50,7 @@ jobs:
         yarn build
 
         cd ..
+        cp -r app/public electron/dist
 
     - name: Should Release?
       id: dorelease
