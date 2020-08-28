@@ -1,5 +1,5 @@
 import { registerComponents } from "./components";
-import { ScriptEditor } from "../../app/src/editor";
+import './styles.css'
 
 export abstract class Application {
 
