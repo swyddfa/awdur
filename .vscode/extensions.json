@@ -3,7 +3,9 @@
     // Extension identifier format: ${publisher}.${name}. Example: vscode.csharp
     // List of extensions which should be recommended for users of this workspace.
     "recommendations": [
+        "bradlc.vscode-tailwindcss",
         "firefox-devtools.vscode-firefox-debug",
+        "heybourn.headwind",
         "msjsdiag.debugger-for-chrome",
         "runem.lit-plugin"
     ],
