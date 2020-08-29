@@ -52,7 +52,7 @@ export class FountainEditor extends HTMLElement {
 
   connectedCallback() {
     this.container = document.createElement("div")
-    this.container.style.height = "100%";
+    this.container.classList.add("h-full");
     this.appendChild(this.container)
 
     this.editor = newEditor(this.container)
