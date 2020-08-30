@@ -1,4 +1,5 @@
 import { LitElement, html, internalProperty, property } from "lit-element";
+import { Icon } from "./editor/icon";
 
 
 export class ScriptTitle extends LitElement {
@@ -52,23 +53,9 @@ export class ScriptTitle extends LitElement {
                .value="${this.scriptTitle}"
                @change="${this.handleChange}"/>
 
-        <button class="bg-gray-600 rounded p-1 ml-2" @click="${this.handleClick}">
-          <svg class="w-6 h-6 ${this.readOnly ? '' : 'hidden'}"
-               fill="none"
-               stroke="currentColor"
-               stroke-width="2"
-               stroke-linecap="round"
-               stroke-linejoin="round">
-            <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-          </svg>
-          <svg class="w-6 h-6 ${this.readOnly ? 'hidden' : ''}"
-               fill="none"
-               stroke="currentColor"
-               stroke-width="2"
-               stroke-linecap="round"
-               stroke-linejoin="round">
-            <path d="M20 6L9 17l-5-5"/>
-          </svg>
+        <button class="bg-gray-600 rounded leading-none p-1 ml-2" @click="${this.handleClick}">
+          <x-icon name="${Icon.PENCIL}" class="inline-block w-6 h-6 ${this.readOnly ? '' : 'hidden'}"></x-icon>
+          <x-icon name="${Icon.CHECK}" class=" inline-block w-6 h-6 ${this.readOnly ? 'hidden' : ''}"></x-icon>
         </button>
       </div>
     `
