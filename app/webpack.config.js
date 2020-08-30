@@ -1,5 +1,7 @@
 const path = require("path")
+// const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const HtmlWebPackPlugin = require("html-webpack-plugin")
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const MonacoWebPackPlugin = require('monaco-editor-webpack-plugin')
 
 const production = process.env.NODE_ENV === 'production'
@@ -9,7 +11,7 @@ module.exports = {
   devtool: production ? '' : 'source-map',
   target: 'web',
   entry: {
-    app: './src/index.ts'
+    app: './src/index.ts',
   },
   resolve: {
     extensions: [".js", ".ts"]
@@ -24,6 +26,11 @@ module.exports = {
     filename: "[name].bundle.js",
     path: path.resolve(__dirname, "public")
   },
+  optimization: {
+    splitChunks: {
+      chunks: 'all'
+    }
+  },
   module: {
     rules: [
       {
@@ -33,7 +40,18 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ["style-loader", "css-loader"]
+        use: [
+          MiniCssExtractPlugin.loader,
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1,
+            }
+          },
+          {
+            loader: 'postcss-loader'
+          }
+        ]
       },
       {
         test: /\.ttf$/,
@@ -42,12 +60,13 @@ module.exports = {
     ]
   },
   plugins: [
+    //new BundleAnalyzerPlugin(),
     new HtmlWebPackPlugin({
-      title: "Awdur",
       template: path.join("src", "index.html")
     }),
+    new MiniCssExtractPlugin(),
     new MonacoWebPackPlugin({
       languages: []
-    })
+    }),
   ]
 }

@@ -1,10 +1,12 @@
 import { registerComponents } from "./components";
-import { ScriptEditor } from "../../app/src/editor";
+import { FountainEditor } from "./components/editor";
+import { EditorToolbar } from "./components/editor-toolbar";
+import './styles.css';
 
 export abstract class Application {
 
   private container: HTMLElement
-  private editor: ScriptEditor
+  private editor: FountainEditor
 
   constructor(container: HTMLElement) {
     this.container = container
@@ -17,7 +19,7 @@ export abstract class Application {
     this.container.append(welcome)
 
     // Initialise all event handlers
-    this.container.addEventListener("new-script", () => this.newScript())
+    document.body.addEventListener("new-script", () => this.newScript())
     //this.container.addEventListener("open-script", () => this.openScript())
     //this.container.addEventListener("save-script", () => this.saveScript())
   }
@@ -32,6 +34,7 @@ export abstract class Application {
       welcome.remove()
     }
 
-    this.editor = new ScriptEditor(this.container);
+    this.editor = <FountainEditor>document.createElement("fountain-editor")
+    this.container.append(this.editor)
   }
 }

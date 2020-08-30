@@ -4,6 +4,5 @@ class WebApplication extends Application {
 
 }
 
-let appRoot = document.querySelector('main')
-let application = new WebApplication(appRoot);
+let application = new WebApplication(document.body);
 application.main()

@@ -1,27 +1,11 @@
 import { html, render } from "lit-html";
 
 let template = () => html`
-<style>
-  .welcome {
-    height: 100%;
-    display: grid;
-    place-items: center;
-  }
-  .content {
-    padding: 2rem;
-    background: white;
-    border-radius: 5px;
-    box-shadow: 2px 2px #ddd;
-  }
-
-  h1 {text-align: center}
-  button {margin: 1em;}
-</style>
-<div class="welcome">
-  <div class="content">
-    <h1>Awdur</h1>
-    <button id="new">New</button>
-    <button id="open">Open</button>
+<div class="h-screen grid place-center">
+  <div class="bg-gray-100 p-10 rounded shadow-sm text-center">
+    <h1 class="text-4xl">Awdur</h1>
+    <button id="new" class="px-4 py-2 bg-gray-700 text-gray-200 rounded">New</button>
+    <button id="open" class="px-4 py-2 bg-gray-700 text-gray-200 rounded">Open</button>
   </div>
 </div>
 `
@@ -34,15 +18,14 @@ export class WelcomeScreen extends HTMLElement {
   }
 
   connectedCallback() {
-    const shadow = this.attachShadow({ mode: 'closed' })
-    render(template(), shadow)
+    render(template(), this)
 
-    const newScript = shadow.getElementById("new");
+    const newScript = this.querySelector("#new");
     newScript.addEventListener("click", () => {
       this.parentElement.dispatchEvent(new CustomEvent("new-script"))
     })
 
-    const openScript = shadow.getElementById("open")
+    const openScript = this.querySelector("#open")
     openScript.addEventListener("click", () => {
       this.parentElement.dispatchEvent(new CustomEvent("open-script"))
     })
