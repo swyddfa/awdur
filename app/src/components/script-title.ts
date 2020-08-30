@@ -1,66 +1,76 @@
-import { html, render } from "lit-html";
+import { LitElement, html, internalProperty, property } from "lit-element";
 
-let template = () => html`
-<div class="flex">
-  <input data-id="title" class="bg-gray-900 disabled:bg-gray-700 text-center rounded" type="text" disabled value="Untitled" />
-  <button data-id="edit-title" class="bg-gray-600 rounded p-1 ml-2">
-    <svg data-id="pencil" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-    </svg>
-    <svg data-id="check" class="w-6 h-6 hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 6L9 17l-5-5"/>
-    </svg>
-  </button>
-</div>
-`
 
-export class ScriptTitle extends HTMLElement {
-  static readonly ELEMENT_NAME = 'script-title'
+export class ScriptTitle extends LitElement {
+  public static ELEMENT_NAME = "script-title"
 
-  private titleField: HTMLInputElement
-  private pencilIcon: HTMLElement
-  private checkIcon: HTMLElement
+  @internalProperty()
+  private readOnly = true
 
-  constructor() {
-    super()
+  @property({ attribute: 'title', reflect: true })
+  public scriptTitle: string
+
+  createRenderRoot() {
+    return this
   }
 
-  connectedCallback() {
-    render(template(), this)
+  handleChange(event) {
+    this.saveTitle()
+  }
 
-    this.titleField = this.querySelector('[data-id="title"]')
-    this.pencilIcon = this.querySelector('[data-id="pencil"]')
-    this.checkIcon = this.querySelector('[data-id="check"]')
-
-    this.querySelector('[data-id="edit-title"]').addEventListener('click', () => {
-      if (this.titleField.disabled) {
-        this.editTitle()
-      } else {
-        this.saveTitle()
-      }
-    })
-
-    this.titleField.addEventListener('change', () => {
+  handleClick(event) {
+    if (this.readOnly) {
+      this.editTitle()
+    } else {
       this.saveTitle()
-    })
+    }
   }
 
   editTitle() {
-    this.titleField.disabled = false
-    this.titleField.focus()
-    this.titleField.select()
+    this.readOnly = false
 
-    this.pencilIcon.classList.add("hidden")
-    this.checkIcon.classList.remove("hidden")
+    let input = this.querySelector("input")
+    input.disabled = false
+    input.focus()
+    input.select()
   }
 
   saveTitle() {
-    this.titleField.disabled = true
+    let input = this.querySelector('input')
+    input.disabled = true
 
-    this.checkIcon.classList.add("hidden")
-    this.pencilIcon.classList.remove("hidden")
-
-    document.body.dispatchEvent(new CustomEvent("title-changed", { detail: { title: this.titleField.value } }))
+    this.readOnly = true
+    this.scriptTitle = input.value
   }
 
+  render() {
+    return html`
+      <div class="flex">
+        <input type="text"
+               class="bg-gray-900 disabled:bg-gray-700 text-center rounded" type="text"
+               disabled
+               .value="${this.scriptTitle}"
+               @change="${this.handleChange}"/>
+
+        <button class="bg-gray-600 rounded p-1 ml-2" @click="${this.handleClick}">
+          <svg class="w-6 h-6 ${this.readOnly ? '' : 'hidden'}"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="2"
+               stroke-linecap="round"
+               stroke-linejoin="round">
+            <path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+          </svg>
+          <svg class="w-6 h-6 ${this.readOnly ? 'hidden' : ''}"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="2"
+               stroke-linecap="round"
+               stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </button>
+      </div>
+    `
+  }
 }

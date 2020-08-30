@@ -1,6 +1,8 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import { html, render } from "lit-html";
 import { FileOpenAction, FileSaveAction } from './actions';
 import { registerFountainLang } from './fountain';
+import { EditorToolbar } from '../editor-toolbar';
 
 registerFountainLang()
 
@@ -40,10 +42,21 @@ function newEditor(container: HTMLElement) {
   return editor
 }
 
+let template = () => html`
+<div class="flex flex-col h-screen overflow-hidden">
+  <editor-toolbar data-ref="toolbar"></editor-toolbar>
+  <div class="flex-grow p-1 bg-white" data-ref="editor"></div>
+  <footer>
+    <span></span>
+  </footer>
+</div>
+`
+
 export class FountainEditor extends HTMLElement {
   static readonly ELEMENT_NAME = 'fountain-editor'
 
   private container: HTMLElement
+  private toolbar: EditorToolbar
   private editor: monaco.editor.ICodeEditor
 
   constructor() {
@@ -51,10 +64,11 @@ export class FountainEditor extends HTMLElement {
   }
 
   connectedCallback() {
-    this.container = document.createElement("div")
-    this.container.classList.add("h-full");
-    this.appendChild(this.container)
+    render(template(), this)
 
-    this.editor = newEditor(this.container)
+    let editorContainer = <HTMLElement>this.querySelector('[data-ref="editor"]')
+    this.editor = newEditor(editorContainer)
+
+    this.toolbar = this.querySelector('[data-ref="toolbar"]')
   }
 }
