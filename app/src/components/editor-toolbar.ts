@@ -35,6 +35,9 @@ export class EditorToolbar extends LitElement {
           <button class="bg-gray-600 rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
             <x-icon name="${Icon.SAVE}" class="inline-block w-6 h-6"></x-icon>
           </button>
+          <button class="bg-gray-600 rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
+            <x-icon name="${Icon.FOLDER}" class="inline-block w-6 h-6"></x-icon>
+          </button>
         </span>
 
         <script-title .title="${this.scriptTitle}"></script-title>

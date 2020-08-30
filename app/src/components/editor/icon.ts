@@ -12,6 +12,7 @@ export class Icon extends LitElement {
   public static CHECK = "check"
   public static COLUMNS = "columns"
   public static FILE = "file"
+  public static FOLDER = "folder"
   public static PENCIL = "pencil"
   public static SAVE = "save"
 
@@ -58,6 +59,18 @@ export class Icon extends LitElement {
                stroke-linejoin="round">
             <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/>
             <path d="M13 2v7h7"/>
+          </svg>
+        `
+
+      case Icon.FOLDER:
+        return html`
+          <svg class="w-full h-full"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="2"
+               stroke-linecap="round"
+               stroke-linejoin="round">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
           </svg>
         `
 
