@@ -4,5 +4,5 @@ class WebApplication extends Application {
 
 }
 
-let application = new WebApplication(document.body);
+let application = new WebApplication();
 application.main()

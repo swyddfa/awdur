@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import { html, render } from "lit-html";
+import { LitElement, html } from "lit-element";
 import { FileOpenAction, FileSaveAction } from './actions';
 import { registerFountainLang } from './fountain';
 import { EditorToolbar } from '../editor-toolbar';
@@ -34,7 +34,9 @@ function newEditor(container: HTMLElement) {
 
   //@ts-ignore
   let resizer = new ResizeObserver(e => {
+    console.log(e)
     let dimensions = e[0].contentRect
+    console.log(dimensions)
     editor.layout({ width: dimensions.width, height: dimensions.height })
   })
   resizer.observe(container)
@@ -42,33 +44,26 @@ function newEditor(container: HTMLElement) {
   return editor
 }
 
-let template = () => html`
-<div class="flex flex-col h-screen overflow-hidden">
-  <editor-toolbar data-ref="toolbar"></editor-toolbar>
-  <div class="flex-grow p-1 bg-white" data-ref="editor"></div>
-  <footer>
-    <span></span>
-  </footer>
-</div>
-`
 
-export class FountainEditor extends HTMLElement {
-  static readonly ELEMENT_NAME = 'fountain-editor'
+export class FountainEditor extends LitElement {
+  public static ELEMENT_NAME = 'fountain-editor'
 
-  private container: HTMLElement
   private toolbar: EditorToolbar
   private editor: monaco.editor.ICodeEditor
 
-  constructor() {
-    super()
+  createRenderRoot() {
+    return this
   }
 
-  connectedCallback() {
-    render(template(), this)
-
-    let editorContainer = <HTMLElement>this.querySelector('[data-ref="editor"]')
-    this.editor = newEditor(editorContainer)
-
-    this.toolbar = this.querySelector('[data-ref="toolbar"]')
+  render() {
+    return html`
+      <div class="h-full bg-white" data-ref="editor"></div>
+    `
   }
+
+  firstUpdated(changedProperties) {
+    let container = <HTMLElement>this.querySelector('[data-ref="editor"]')
+    this.editor = newEditor(container)
+  }
+
 }

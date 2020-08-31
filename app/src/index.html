@@ -1,12 +1,27 @@
 <!DOCTYPE html>
-<html class="bg-gray-200">
+<html class="bg-white">
 
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Awdur</title>
 </head>
 
-<body>
+<body class="flex flex-col h-screen max-h-screen">
+  <header class="flex-shrink-0 bg-gray-700">
+    <editor-toolbar></editor-toolbar>
+  </header>
+
+  <main class="flex-grow p-1"></main>
+
+  <footer class="flex items-center justify-end p-1 text-xs text-right text-gray-600 bg-white border-t">
+    <app-version class="inline-block mr-2"></app-version>
+    <a class="mr-2 leading-none" target="_blank" ref="noreferrer noopener" href="https://github.com/alcarney/awdur">
+      <x-icon class="inline-block w-4 h-4" name="github"></x-icon>
+    </a>
+  </footer>
+
 </body>
 
 </html>

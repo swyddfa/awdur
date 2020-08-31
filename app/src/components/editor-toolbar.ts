@@ -5,11 +5,13 @@ export class EditorToolbar extends LitElement {
   static readonly ELEMENT_NAME = "editor-toolbar"
 
   @property()
-  private scriptTitle: string
+  public scriptTitle: string
+
+  @property({ type: Boolean, attribute: 'show', reflect: true })
+  public showToolbar: boolean
 
   constructor() {
     super()
-    this.scriptTitle = "Untitled Script"
   }
 
   createRenderRoot() {
@@ -26,7 +28,7 @@ export class EditorToolbar extends LitElement {
 
   render() {
     return html`
-      <div class="bg-gray-700 p-4 flex justify-between items-center w-full text-gray-300">
+      <div class="bg-gray-700 p-4 flex justify-between items-center w-full transition-opacity duration-500 ease-in-out text-gray-300 ${this.showToolbar ? '' : 'opacity-0'}">
 
         <span>
           <button class="bg-gray-600 rounded p-1 leading-none" @click=${this.handleNew}>
