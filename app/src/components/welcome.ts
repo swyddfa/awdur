@@ -1,33 +1,38 @@
-import { html, render } from "lit-html";
+import { LitElement, html } from "lit-element";
 
-let template = () => html`
-<div class="h-screen grid place-center">
-  <div class="bg-gray-100 p-10 rounded shadow-sm text-center">
-    <h1 class="text-4xl">Awdur</h1>
-    <button id="new" class="px-4 py-2 bg-gray-700 text-gray-200 rounded">New</button>
-    <button id="open" class="px-4 py-2 bg-gray-700 text-gray-200 rounded">Open</button>
-  </div>
-</div>
-`
 
-export class WelcomeScreen extends HTMLElement {
-  static readonly ELEMENT_NAME = 'welcome-screen'
+export class WelcomeScreen extends LitElement {
+  public static ELEMENT_NAME = 'welcome-screen'
 
-  constructor() {
-    super()
+  createRenderRoot() {
+    return this
   }
 
-  connectedCallback() {
-    render(template(), this)
+  newScript() {
+    console.log("welcome: new-script")
+    this.parentElement.dispatchEvent(new CustomEvent("new-script"))
+  }
 
-    const newScript = this.querySelector("#new");
-    newScript.addEventListener("click", () => {
-      this.parentElement.dispatchEvent(new CustomEvent("new-script"))
-    })
+  openScript() {
+    this.dispatchEvent(new CustomEvent("open-script"))
+  }
 
-    const openScript = this.querySelector("#open")
-    openScript.addEventListener("click", () => {
-      this.parentElement.dispatchEvent(new CustomEvent("open-script"))
-    })
+  render() {
+    return html`
+      <div class="h-full grid place-center bg-gray-200">
+        <div class="bg-gray-100 p-10 rounded shadow-sm text-center">
+          <h1 class="text-4xl">Awdur</h1>
+          <button class="px-4 py-2 bg-gray-700 text-gray-200 rounded"
+                  @click=${this.newScript}>
+            New
+          </button>
+          <button class="px-4 py-2 bg-gray-700 text-gray-200 rounded"
+                  @click="${this.openScript}">
+            Open
+          </button>
+        </div>
+      </div>
+`
+
   }
 }
