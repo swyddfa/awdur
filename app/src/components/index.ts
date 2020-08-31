@@ -2,7 +2,8 @@ import { WelcomeScreen } from "./welcome";
 import { FountainEditor } from "./editor";
 import { EditorToolbar } from "./editor-toolbar";
 import { ScriptTitle } from "./script-title";
-import { Icon } from "./editor/icon";
+import { Icon } from "./icon";
+import { Version } from "./version";
 
 export function registerComponents() {
   let components = [
@@ -10,6 +11,7 @@ export function registerComponents() {
     FountainEditor,
     Icon,
     ScriptTitle,
+    Version,
     WelcomeScreen
   ]
 

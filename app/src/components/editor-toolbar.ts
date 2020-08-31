@@ -1,5 +1,5 @@
 import { LitElement, html, property } from "lit-element";
-import { Icon } from "./editor/icon";
+import { Icon } from "./icon";
 
 export class EditorToolbar extends LitElement {
   static readonly ELEMENT_NAME = "editor-toolbar"

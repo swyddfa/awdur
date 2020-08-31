@@ -1,5 +1,5 @@
 import { LitElement, html, internalProperty, property } from "lit-element";
-import { Icon } from "./editor/icon";
+import { Icon } from "./icon";
 
 
 export class ScriptTitle extends LitElement {
