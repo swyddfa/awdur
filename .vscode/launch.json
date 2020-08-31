@@ -8,7 +8,13 @@
             "reAttach": true,
             "url": "http://localhost:9000/",
             "webRoot": "${workspaceFolder}/app/public",
-            "preLaunchTask": "${defaultBuildTask}"
+            "preLaunchTask": "${defaultBuildTask}",
+            "pathMappings": [
+                {
+                    "url": "webpack:///src",
+                    "path": "${workspaceFolder}/app/src"
+                }
+            ]
         },
         {
             "name": "Debug Electron Main",
