@@ -66,4 +66,8 @@ export class FountainEditor extends LitElement {
     this.editor = newEditor(container)
   }
 
+  getEditorContent() {
+    return this.editor.getValue()
+  }
+
 }

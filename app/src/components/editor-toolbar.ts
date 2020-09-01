@@ -23,7 +23,7 @@ export class EditorToolbar extends LitElement {
   }
 
   handleSave() {
-    console.log("Save script")
+    this.dispatchEvent(new CustomEvent('save-script'))
   }
 
   render() {

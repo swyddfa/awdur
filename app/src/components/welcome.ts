@@ -9,8 +9,7 @@ export class WelcomeScreen extends LitElement {
   }
 
   newScript() {
-    console.log("welcome: new-script")
-    this.parentElement.dispatchEvent(new CustomEvent("new-script"))
+    this.dispatchEvent(new CustomEvent("new-script"))
   }
 
   openScript() {

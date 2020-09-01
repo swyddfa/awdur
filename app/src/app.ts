@@ -1,7 +1,25 @@
+import * as idb from 'idb'
 import { registerComponents } from "./components";
 import { FountainEditor } from "./components/editor";
 import { EditorToolbar } from "./components/editor-toolbar";
 import './styles.css';
+
+const LOCAL_SCRIPTS_VERSION = 1
+
+const dbMigration: idb.OpenDBCallbacks<unknown> = {
+  upgrade: (db, oldVersion, newVersion, transaction) => {
+
+    if (!db.objectStoreNames.contains("scripts")) {
+      console.log("creating scripts collection")
+      let scripts = db.createObjectStore('scripts', {
+        keyPath: 'id',
+        autoIncrement: true
+      })
+
+      scripts.createIndex("filename", "filename")
+    }
+  }
+}
 
 export abstract class Application {
 
@@ -11,6 +29,8 @@ export abstract class Application {
 
   private toolbar: EditorToolbar
   private editor: FountainEditor
+
+  private db: Promise<idb.IDBPDatabase<unknown>>
 
   constructor() {
     this.header = document.querySelector("header")
@@ -23,20 +43,37 @@ export abstract class Application {
   main() {
     registerComponents()
 
-    const welcome = document.createElement("welcome-screen")
-    this.appMain.appendChild(welcome)
-    this.appMain.addEventListener("new-script", () => this.newScript())
+    // Get a handle on the database.
+    this.db = idb.openDB('local-scripts', LOCAL_SCRIPTS_VERSION, dbMigration)
 
-    // Initialise all event handlers
-    //this.container.addEventListener("open-script", () => this.openScript())
-    //this.container.addEventListener("save-script", () => this.saveScript())
+    const welcome = document.createElement("welcome-screen")
+    welcome.addEventListener("new-script", () => this.newScript())
+    this.appMain.appendChild(welcome)
+
   }
 
   newScript() {
-    console.log("app: new script")
     this.initEditor()
-    this.toolbar.setAttribute("show", "true")
-    this.toolbar.scriptTitle = "Untitled"
+    this.toolbar.scriptTitle = "Untitled Script"
+  }
+
+  async handleSaveScript() {
+    console.log("saving")
+    let content = this.editor.getEditorContent()
+    let filename = this.toolbar.scriptTitle
+
+    let result = await this.saveScript(filename, content)
+      .catch(err => {
+        console.error(err)
+        alert("Unable to save")
+      })
+
+    console.log('Saved: ', result)
+  }
+
+  async saveScript(filename: string, content: string) {
+    let dbase = await this.db
+    return await dbase.add('scripts', { filename: filename, content: content })
   }
 
   initEditor() {
@@ -48,5 +85,7 @@ export abstract class Application {
     this.editor = <FountainEditor>document.createElement("fountain-editor")
     this.appMain.append(this.editor)
 
+    this.toolbar.setAttribute("show", "true")
+    this.toolbar.addEventListener("save-script", () => this.handleSaveScript())
   }
 }
