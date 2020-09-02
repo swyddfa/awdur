@@ -28,23 +28,23 @@ export class EditorToolbar extends LitElement {
 
   render() {
     return html`
-      <div class="bg-gray-700 p-4 flex justify-between items-center w-full transition-opacity duration-500 ease-in-out text-gray-300 ${this.showToolbar ? '' : 'opacity-0'}">
+      <div class="bg-gray-700 p-2 flex justify-between items-center w-full transition-opacity duration-200 ease-in-out text-gray-300 ${this.showToolbar ? '' : 'opacity-0'}">
 
         <span>
-          <button class="bg-gray-600 rounded p-1 leading-none" @click=${this.handleNew}>
+          <button class="rounded p-1 leading-none" @click=${this.handleNew}>
             <x-icon name="${Icon.FILE}" class="inline-block w-6 h-6"></x-icon>
           </button>
-          <button class="bg-gray-600 rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
+          <button class="rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
             <x-icon name="${Icon.SAVE}" class="inline-block w-6 h-6"></x-icon>
           </button>
-          <button class="bg-gray-600 rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
+          <button class="rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
             <x-icon name="${Icon.FOLDER}" class="inline-block w-6 h-6"></x-icon>
           </button>
         </span>
 
         <script-title .title="${this.scriptTitle}"></script-title>
         <span>
-          <button class="bg-gray-600 rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
+          <button class="rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
             <x-icon name="${Icon.COLUMNS}" class="inline-block w-6 h-6"></x-icon>
           </button>
         </span>
