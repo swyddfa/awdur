@@ -9,7 +9,7 @@ registerFountainLang()
 // @ts-ignore
 self.MonacoEnvironment = {
   getWorkerUrl: function (moduleId, label) {
-    return "./editor.worker.bundle.js"
+    return "./editor.worker.js"
   }
 }
 
@@ -34,9 +34,7 @@ function newEditor(container: HTMLElement) {
 
   //@ts-ignore
   let resizer = new ResizeObserver(e => {
-    console.log(e)
     let dimensions = e[0].contentRect
-    console.log(dimensions)
     editor.layout({ width: dimensions.width, height: dimensions.height })
   })
   resizer.observe(container)
