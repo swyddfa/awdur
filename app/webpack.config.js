@@ -26,11 +26,11 @@ module.exports = {
     filename: "[name].bundle.js",
     path: path.resolve(__dirname, "public")
   },
-  optimization: {
+  optimization: ((production && !process.env.CYPRESS_ENV) ? {
     splitChunks: {
       chunks: 'all'
     }
-  },
+  } : undefined),
   module: {
     rules: [
       {

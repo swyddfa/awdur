@@ -26,6 +26,10 @@ export class EditorToolbar extends LitElement {
     this.dispatchEvent(new CustomEvent('save-script'))
   }
 
+  handleOpen() {
+    console.log("Open.")
+  }
+
   render() {
     return html`
       <div class="bg-gray-700 p-2 flex justify-between items-center w-full transition-opacity duration-200 ease-in-out text-gray-300 ${this.showToolbar ? '' : 'opacity-0'}">
@@ -37,7 +41,7 @@ export class EditorToolbar extends LitElement {
           <button class="rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
             <x-icon name="${Icon.SAVE}" class="inline-block w-6 h-6"></x-icon>
           </button>
-          <button class="rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
+          <button class="rounded p-1 ml-2 leading-none" @click=${this.handleOpen}>
             <x-icon name="${Icon.FOLDER}" class="inline-block w-6 h-6"></x-icon>
           </button>
         </span>
