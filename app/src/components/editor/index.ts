@@ -1,8 +1,9 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import { LitElement, html } from "lit-element";
+import { LitElement, html, property, PropertyValues } from "lit-element";
 import { FileOpenAction, FileSaveAction } from './actions';
 import { registerFountainLang } from './fountain';
 import { EditorToolbar } from '../editor-toolbar';
+import { Script } from '../../services';
 
 registerFountainLang()
 
@@ -49,6 +50,7 @@ export class FountainEditor extends LitElement {
   private toolbar: EditorToolbar
   private editor: monaco.editor.ICodeEditor
 
+  private currentScript: Script
 
   createRenderRoot() {
     return this
@@ -66,10 +68,21 @@ export class FountainEditor extends LitElement {
 
     this.toolbar = document.querySelector("editor-toolbar")
     this.toolbar.setAttribute("show", "true")
+    this.toolbar.addEventListener('save-script', () => this.saveScript())
+    this.dispatchEvent(new CustomEvent('ready'))
   }
 
-  newScript() {
+  openScript(script: Script) {
+    this.currentScript = script
+    this.toolbar.scriptTitle = script.name
+    this.editor.setValue(script.content)
+  }
 
+  saveScript() {
+    this.currentScript.content = this.editor.getValue()
+    this.currentScript.name = this.toolbar.scriptTitle
+
+    this.dispatchEvent(new CustomEvent('save-script', { detail: { script: this.currentScript } }))
   }
 
 }
