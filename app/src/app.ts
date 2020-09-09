@@ -3,25 +3,9 @@ import { registerComponents } from "./components";
 import { FountainEditor } from "./components/editor";
 import { EditorToolbar } from "./components/editor-toolbar";
 import './styles.css';
+import { Script, ScriptAccess } from './services';
 
-const LOCAL_SCRIPTS_VERSION = 1
-
-const dbMigration: idb.OpenDBCallbacks<unknown> = {
-  upgrade: (db, oldVersion, newVersion, transaction) => {
-
-    if (!db.objectStoreNames.contains("scripts")) {
-      console.log("creating scripts collection")
-      let scripts = db.createObjectStore('scripts', {
-        keyPath: 'id',
-        autoIncrement: true
-      })
-
-      scripts.createIndex("filename", "filename")
-    }
-  }
-}
-
-export abstract class Application {
+export class Application {
 
   private header: HTMLElement
   private appMain: HTMLElement
@@ -30,50 +14,42 @@ export abstract class Application {
   private toolbar: EditorToolbar
   private editor: FountainEditor
 
-  private db: Promise<idb.IDBPDatabase<unknown>>
-
-  constructor() {
+  constructor(private scriptAccess: ScriptAccess) {
     this.header = document.querySelector("header")
     this.appMain = document.querySelector("main")
     this.footer = document.querySelector("footer")
 
-    this.toolbar = document.querySelector("editor-toolbar")
   }
 
   main() {
     registerComponents()
 
-    // Get a handle on the database.
-    this.db = idb.openDB('local-scripts', LOCAL_SCRIPTS_VERSION, dbMigration)
-
     const welcome = document.createElement("welcome-screen")
     welcome.addEventListener("new-script", () => this.newScript())
+    welcome.addEventListener("open-script", () => this.openScript())
     this.appMain.appendChild(welcome)
 
   }
 
   newScript() {
     this.initEditor()
-    this.toolbar.scriptTitle = "Untitled Script"
+    this.editor.newScript()
   }
 
-  async handleSaveScript() {
-    console.log("saving")
-    let content = this.editor.getEditorContent()
-    let filename = this.toolbar.scriptTitle
-
-    let result = await this.saveScript(filename, content)
-      .catch(err => {
-        console.error(err)
-        alert("Unable to save")
-      })
-
-    console.log('Saved: ', result)
+  openScript() {
+    const modal = document.createElement("file-open")
+    this.appMain.append(modal)
   }
 
-  async saveScript(filename: string, content: string) {
-    let dbase = await this.db
-    return await dbase.add('scripts', { filename: filename, content: content })
+  async saveScript(event: CustomEvent) {
+    let script = event.detail.script
+
+    if (!script.id) {
+      await this.scriptAccess.addScript(script)
+      return
+    }
+
+    await this.scriptAccess.updateScript(script)
   }
 
   initEditor() {
@@ -83,9 +59,7 @@ export abstract class Application {
     }
 
     this.editor = <FountainEditor>document.createElement("fountain-editor")
+    this.editor.addEventListener("save-script", (event: CustomEvent) => this.saveScript(event))
     this.appMain.append(this.editor)
-
-    this.toolbar.setAttribute("show", "true")
-    this.toolbar.addEventListener("save-script", () => this.handleSaveScript())
   }
 }

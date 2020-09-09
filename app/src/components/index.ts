@@ -4,10 +4,12 @@ import { EditorToolbar } from "./editor-toolbar";
 import { ScriptTitle } from "./script-title";
 import { Icon } from "./icon";
 import { Version } from "./version";
+import { FileOpenModal } from "./file-open";
 
 export function registerComponents() {
   let components = [
     EditorToolbar,
+    FileOpenModal,
     FountainEditor,
     Icon,
     ScriptTitle,

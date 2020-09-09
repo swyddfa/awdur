@@ -1,7 +1,6 @@
 import { Application } from "./app";
+import { IndexedDBScriptAccess } from "./services/indexeddb";
 
-class WebApplication extends Application {
-}
-
-let application = new WebApplication();
+let access = new IndexedDBScriptAccess()
+let application = new Application(access);
 application.main()

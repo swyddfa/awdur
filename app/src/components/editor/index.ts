@@ -49,6 +49,7 @@ export class FountainEditor extends LitElement {
   private toolbar: EditorToolbar
   private editor: monaco.editor.ICodeEditor
 
+
   createRenderRoot() {
     return this
   }
@@ -62,10 +63,13 @@ export class FountainEditor extends LitElement {
   firstUpdated(changedProperties) {
     let container = <HTMLElement>this.querySelector('[data-ref="editor"]')
     this.editor = newEditor(container)
+
+    this.toolbar = document.querySelector("editor-toolbar")
+    this.toolbar.setAttribute("show", "true")
   }
 
-  getEditorContent() {
-    return this.editor.getValue()
+  newScript() {
+
   }
 
 }
