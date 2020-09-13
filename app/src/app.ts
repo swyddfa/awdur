@@ -75,6 +75,7 @@ export class Application {
     }
 
     this.editor = <FountainEditor>document.createElement("fountain-editor")
+    this.editor.addEventListener('new-script', () => this.newScript())
     this.editor.addEventListener("save-script", (event: CustomEvent) => this.saveScript(event))
     this.editor.addEventListener("open-script", () => this.openScript())
     this.editor.addEventListener("ready", () => onReady(this.editor), { once: true })

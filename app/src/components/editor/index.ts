@@ -64,13 +64,21 @@ export class FountainEditor extends LitElement {
 
   firstUpdated(changedProperties) {
     let container = <HTMLElement>this.querySelector('[data-ref="editor"]')
+    container.addEventListener('new-script', () => this.newScript())
+    container.addEventListener('save-script', () => this.saveScript())
+    container.addEventListener('open-script', () => this.openOtherScript())
     this.editor = newEditor(container)
 
     this.toolbar = document.querySelector("editor-toolbar")
     this.toolbar.setAttribute("show", "true")
+    this.toolbar.addEventListener('new-script', () => this.newScript())
     this.toolbar.addEventListener('save-script', () => this.saveScript())
     this.toolbar.addEventListener('open-script', () => this.openOtherScript())
     this.dispatchEvent(new CustomEvent('ready'))
+  }
+
+  newScript() {
+    this.dispatchEvent(new CustomEvent('new-script'))
   }
 
   openScript(script: Script) {
@@ -86,6 +94,7 @@ export class FountainEditor extends LitElement {
   private saveScript() {
     this.currentScript.content = this.editor.getValue()
     this.currentScript.name = this.toolbar.scriptTitle
+    console.log(this.currentScript)
 
     this.dispatchEvent(new CustomEvent('save-script', { detail: { script: this.currentScript } }))
   }

@@ -19,7 +19,7 @@ export class EditorToolbar extends LitElement {
   }
 
   handleNew() {
-    console.log("New script")
+    this.dispatchEvent(new CustomEvent("new-script"))
   }
 
   handleSave() {
@@ -28,6 +28,12 @@ export class EditorToolbar extends LitElement {
 
   handleOpen() {
     this.dispatchEvent(new CustomEvent('open-script'))
+  }
+
+  handleRename(event: CustomEvent) {
+    let title = event.detail.title
+    this.scriptTitle = title
+    this.handleSave()
   }
 
   render() {
@@ -46,7 +52,7 @@ export class EditorToolbar extends LitElement {
           </button>
         </span>
 
-        <script-title .title="${this.scriptTitle}"></script-title>
+        <script-title @rename="${this.handleRename}" .title="${this.scriptTitle}"></script-title>
         <span>
           <button class="rounded p-1 ml-2 leading-none" @click=${this.handleSave}>
             <x-icon name="${Icon.COLUMNS}" class="inline-block w-6 h-6"></x-icon>

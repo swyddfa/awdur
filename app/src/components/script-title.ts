@@ -42,6 +42,8 @@ export class ScriptTitle extends LitElement {
 
     this.readOnly = true
     this.scriptTitle = input.value
+
+    this.dispatchEvent(new CustomEvent('rename', { detail: { title: input.value } }))
   }
 
   render() {
