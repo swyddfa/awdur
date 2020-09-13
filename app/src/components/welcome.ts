@@ -19,7 +19,7 @@ export class WelcomeScreen extends LitElement {
   render() {
     return html`
       <div class="h-full grid place-center bg-gray-200">
-        <div class="bg-gray-100 p-10 rounded shadow-sm text-center">
+        <div class="bg-white p-10 rounded shadow-sm text-center">
           <h1 class="text-4xl">Awdur</h1>
           <button class="px-4 py-2 bg-gray-700 text-gray-200 rounded"
                   @click=${this.newScript}>

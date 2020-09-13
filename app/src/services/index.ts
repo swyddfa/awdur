@@ -36,6 +36,11 @@ export interface ScriptAccess {
   getScript(id: string): Promise<Script>
 
   /**
+   * Get list of scripts in the db.
+   */
+  getScripts(): Promise<Script[]>
+
+  /**
    * Update a script
    */
   updateScript(script: Script): Promise<Script>

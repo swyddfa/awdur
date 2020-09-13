@@ -27,7 +27,7 @@ export class EditorToolbar extends LitElement {
   }
 
   handleOpen() {
-    console.log("Open.")
+    this.dispatchEvent(new CustomEvent('open-script'))
   }
 
   render() {

@@ -2,6 +2,7 @@ import { registerComponents } from "./components";
 import { FountainEditor } from "./components/editor";
 import './styles.css';
 import { Script, ScriptAccess } from './services';
+import { FileOpenModal } from "./components/file-open";
 
 export class Application {
 
@@ -38,7 +39,23 @@ export class Application {
   }
 
   async openScript() {
+    let modal = <FileOpenModal>document.createElement("file-open")
+    modal.scriptAccess = this.scriptAccess
+    modal.addEventListener('close', (event: CustomEvent) => this.handleModalClose(event, modal), { once: true })
+    this.appMain.append(modal)
+  }
 
+  handleModalClose(event: CustomEvent, modal: FileOpenModal) {
+    this.appMain.removeChild(modal)
+
+    if (!event.detail || !event.detail.script) {
+      return
+    }
+
+    let script: Script = event.detail.script
+    this.initEditor((editor: FountainEditor) => {
+      editor.openScript(script)
+    })
   }
 
   async saveScript(event: CustomEvent) {
@@ -52,9 +69,16 @@ export class Application {
       welcome.remove()
     }
 
+    if (this.editor) {
+      onReady(this.editor)
+      return
+    }
+
     this.editor = <FountainEditor>document.createElement("fountain-editor")
     this.editor.addEventListener("save-script", (event: CustomEvent) => this.saveScript(event))
+    this.editor.addEventListener("open-script", () => this.openScript())
     this.editor.addEventListener("ready", () => onReady(this.editor), { once: true })
     this.appMain.append(this.editor)
   }
+
 }

@@ -56,4 +56,11 @@ export class IndexedDBScriptAccess implements ScriptAccess {
     return result
   }
 
+  async getScripts(): Promise<Script[]> {
+    let db = await this.db
+
+    return await db.getAll(IndexedDBScriptAccess.DB_NAME)
+  }
+
+
 }
