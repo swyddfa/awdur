@@ -1,0 +1,63 @@
+name: 'Release: awdur'
+on:
+  push:
+    branches:
+    - release
+    paths:
+    - 'lib/awdur/**'
+
+jobs:
+  release:
+    name: awdur release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/awdur
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - run: |
+        python --version
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade build hatch towncrier docutils
+      name: Setup Environment
+
+    - run: |
+        set -e
+
+        ./scripts/make_release.py lib
+      name: Set Version
+      id: info
+
+    - name: Package
+      run: |
+        cd lib/awdur
+        python -m build
+
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v4
+      with:
+        name: 'dist'
+        path: lib/awdur/dist
+
+    - name: Publish
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: lib/awdur/dist/
+
+    - name: Create Release
+      run: |
+        gh release create "${RELEASE_TAG}" \
+          --title "Awdur v${VERSION} - ${RELEASE_DATE}" \
+          -F lib/awdur/.changes.md \
+          ./lib/awdur/dist/*
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
