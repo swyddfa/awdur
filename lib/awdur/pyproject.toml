@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling>=1.17.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "awdur"
+dynamic = ["version"]
+description = "An experiment in literate programming built on docutils."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Alex Carney", email = "alcarneyme@gmail.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+]
+dependencies = [
+    "docutils",
+    "pygments",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/swyddfa/awdur/issues"
+"Documentation" = "https://swyddfa.github.io/awdur/"
+"Source Code" = "https://github.com/swyddfa/awdur"
+
+[project.scripts]
+awdur = "awdur.cli:main"
+
+[tool.coverage.run]
+parallel = true
+source_pkgs = ["awdur"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+sort = "Cover"
+exclude_also = [
+    # Typing imports will never be executed
+    "if typing.TYPE_CHECKING:",
+]
+
+[tool.isort]
+force_single_line = true
+known_first_party = ["awdur"]
+profile = "black"
+
+[tool.towncrier]
+filename = "CHANGES.md"
+directory = "changes/"
+title_format = "## v{version} - {project_date}"
+issue_format = "[#{issue}](https://github.com/swyddfa/awdur/issues/{issue})"
+underlines = ["", "", ""]
+
+type = [
+    { name = "Breaking Changes", directory = "breaking", showcontent = true },
+    { name = "Features", directory = "feature", showcontent = true },
+    { name = "Enhancements", directory = "enhancement", showcontent = true },
+    { name = "API Changes", directory = "api", showcontent = true },
+    { name = "Fixes", directory = "fix", showcontent = true },
+    { name = "Docs", directory = "doc", showcontent = true },
+    { name = "Deprecated", directory = "deprecated", showcontent = true },
+    { name = "Misc", directory = "misc", showcontent = true },
+    { name = "Removed", directory = "removed", showcontent = true },
+]

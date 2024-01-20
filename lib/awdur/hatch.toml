@@ -1,0 +1,9 @@
+[version]
+path = "awdur/__init__.py"
+validate-bump = false
+
+[build.targets.sdist]
+include = ["awdur", "tests", "CHANGES.md"]
+
+[build.targets.wheel]
+packages = ["awdur"]
