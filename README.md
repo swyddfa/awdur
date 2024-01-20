@@ -1,6 +1,7 @@
 # Awdur
 
-**Awdur is in very early development, no guarantees are made**
+*Previously, Awdur was an attempt at using electron to build a simple UI.
+This branch is kept on the off chance someone finds the code here interesting.*
 
 A simple Electron app for writing scripts in the [Fountain][fountain] markup format
 based on the [Monaco Editor][monaco-editor] from [VSCode][vscode].
