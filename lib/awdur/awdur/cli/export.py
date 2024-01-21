@@ -60,19 +60,17 @@ class ExtractCodeTransform(Transform):
         visitor = CodeMetdataVisitor(self.document)
         self.document.walk(visitor)
 
-        code_blocks = self.document.findall(nodes.literal_block)
-        self.document.children = list(code_blocks)
-
 
 class SourceCodeWriter(Writer):
     """A writer for writing source code."""
 
     def get_transforms(self):
-        return super().get_transforms() + [ExtractCodeTransform]
+        return [ExtractCodeTransform]
 
     def translate(self):
         all_filenames = set()
-        for node in self.document.children:
+
+        for node in self.document.findall(nodes.literal_block):
             filename = node.attributes.get("filename", "<<default>>")
             all_filenames.add(filename)
             self.parts.setdefault(filename, []).append(node.astext())
