@@ -101,8 +101,10 @@ def export(source: pathlib.Path, destination: pathlib.Path):
     destination
        The location to write to
     """
+
     project = publish_parts(
         source=source.read_text(),
+        source_path=str(source),
         # destination_path="out.html",  # sys.stdout,
         writer=SourceCodeWriter(),
     )
