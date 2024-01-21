@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import bdb
 import inspect
 import logging
 import typing
@@ -49,6 +50,7 @@ def get_parser(commands: Dict[str, Callable]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Literate programming tools built on docutils."
     )
+    parser.add_argument("--debug", action="store_true", help="enable debug mode")
 
     subcommands = parser.add_subparsers(title="commands")
 
@@ -84,5 +86,13 @@ def main(argv: Optional[Sequence[str]] = None):
     try:
         call(setup_logging, arguments)
         call(command, arguments)
+    except bdb.BdbQuit:
+        # Don't debug exiting from the debugger.
+        pass
     except Exception as exc:
         logger.error("%s", exc)
+
+        if arguments.get("debug", False):
+            import pdb
+
+            pdb.post_mortem()
