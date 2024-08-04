@@ -1,5 +1,5 @@
 [version]
-path = "awdur/__init__.py"
+path = "awdur/_version.py"
 validate-bump = false
 
 [build.targets.sdist]
