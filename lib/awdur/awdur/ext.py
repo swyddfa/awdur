@@ -36,7 +36,20 @@ class CodeFragment(CodeBlock):
             print(f"Unable to process {code}")
             return result
 
-        code.attributes["filename"] = self.options.get("filename")
+        if (filename := self.options.get("filename")) is not None:
+            code.attributes["filename"] = filename
+
+            # Add a header to the code block indicating where it is being saved to.
+            header = nodes.container(
+                "",
+                nodes.literal("", filename, classes=["awdur-codeblock-filename"]),
+                classes=["awdur-codeblock-header"]
+            )
+            result.insert(0, header)
+
+            container = nodes.container("", *result, classes=["awdur-codeblock"])
+            return [container]
+
         return result
 
 
