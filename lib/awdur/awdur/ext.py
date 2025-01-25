@@ -115,8 +115,8 @@ class SourceCodeBuilder(Builder):
 
 
 def setup(app: Sphinx):
-    app.add_directive("code-block", CodeFragment)
-    app.add_directive("sourcecode", CodeFragment)
+    app.add_directive("code-block", CodeFragment, override=True)
+    app.add_directive("sourcecode", CodeFragment, override=True)
 
     app.add_builder(SourceCodeBuilder)
 
