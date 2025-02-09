@@ -1,2 +1,4 @@
 from ._version import __version__
-from .ext import setup
+from .sphinx_ import setup
+
+__all__ = ("__version__", "setup")

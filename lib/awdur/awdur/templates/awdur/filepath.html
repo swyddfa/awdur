@@ -1,0 +1,26 @@
+<a hx-boost="true"
+   href="/{{root}}">
+  default
+</a>
+
+<span class="awdur-pathsep">/</span>
+
+{% for p in path %}
+{% if not loop.first %}
+{% set parents = path[:loop.index -1] %}
+<a hx-boost="true"
+   href="/{{root}}/{{ '/'.join(parents)}}/{{p}}">
+  {{ p }}
+</a>
+{% else %}
+<a hx-boost="true"
+   href="/{{root}}/{{p}}">
+  {{ p }}
+</a>
+{% endif %}
+
+{% if not loop.last %}
+<span class="awdur-pathsep">/</span>
+{% endif %}
+
+{% endfor %}

@@ -1,0 +1,32 @@
+{% extends "page.html" %}
+
+{% block body %}
+<div class="awdur-container">
+  <div class="awdur-directory-header">
+    {% include "awdur/filepath.html" %}
+  </div>
+
+  <ul class="awdur-directory-listing">
+
+    {% for dirname in dirs %}
+    <li class="awdur-directory">
+      <a hx-boost="true"
+         href="/{{ root }}/{% if path|length > 0 %}{{ '/'.join(path) }}/{% endif %}{{ dirname }}"
+         class="awdur-filename">
+        {{ dirname }}
+      </a>
+    </li>
+    {% endfor %}
+
+    {% for file in files %}
+    <li class="awdur-file">
+      <a hx-boost="true"
+         href="/{{ root }}/{% if path|length > 0 %}{{ '/'.join(path) }}/{% endif %}{{ file }}"
+         class="awdur-filename">
+        {{ file }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}
