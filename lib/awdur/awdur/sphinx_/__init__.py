@@ -114,7 +114,7 @@ class SourceCodeBuilder(Builder):
             if not filepath.parent.exists():
                 filepath.parent.mkdir(parents=True)
 
-            filepath.write_text("\n\n".join(blocks))
+            filepath.write_text("\n\n".join(blocks) + "\n")
 
 
 def discover_code(app: Sphinx, doctree):
@@ -122,7 +122,7 @@ def discover_code(app: Sphinx, doctree):
 
     awdur: AwdurDomain = app.env.domains["awdur"]
 
-    for code_block in doctree.traverse(nodes.literal_block):
+    for code_block in doctree.findall(nodes.literal_block):
         logger.debug("[awdur] found block: %s", code_block)
         if (filename := code_block.attributes.get("filename", None)) is None:
             logger.debug("[awdur] no file name, skipping")
