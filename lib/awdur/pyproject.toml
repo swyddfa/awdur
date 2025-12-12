@@ -5,9 +5,9 @@ build-backend = "hatchling.build"
 [project]
 name = "awdur"
 dynamic = ["version"]
-description = "An experiment in literate programming built on top of Sphinx."
+description = "An experiment in literate programming built on top of doctutils."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Alex Carney", email = "alcarneyme@gmail.com" }]
 classifiers = [
@@ -16,17 +16,22 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Documentation :: Sphinx",
 ]
 dependencies = [
-    "sphinx",
+    "docutils",
+    "jinja2",
+    "pygments",
 ]
+
+[project.optional-dependencies]
+sphinx = ["sphinx"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/swyddfa/awdur/issues"
