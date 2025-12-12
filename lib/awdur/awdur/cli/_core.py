@@ -4,34 +4,20 @@ import argparse
 import bdb
 import inspect
 import logging
+import pathlib
 import typing
 
+from .extract import extract
+from .render import render
+
 if typing.TYPE_CHECKING:
-    from typing import Any
-    from typing import Callable
-    from typing import Dict
-    from typing import Optional
-    from typing import Sequence
+    from collections.abc import Callable, Sequence
+    from typing import Any, TypeVar
+
+    T = TypeVar("T")
 
 
-_COMMANDS: Dict[str, Callable] = {}
-logger = logging.getLogger("awdur")
-
-
-def command(fn: Optional[Callable] = None):
-    """Register a cli command."""
-
-    def register(f):
-        _COMMANDS[f.__name__] = f
-
-    if fn is not None:
-        register(fn)
-        return fn
-
-    return register
-
-
-def call(fn: Callable, args: Dict[str, Any]):
+def call(fn: Callable[..., T], args: dict[str, Any]) -> T:
     """Invoke the given function, taking relevant inputs from ``args``."""
 
     arguments = inspect.signature(fn).parameters.keys()
@@ -46,34 +32,47 @@ def call(fn: Callable, args: Dict[str, Any]):
     return fn(**kwargs)
 
 
-def get_parser(commands: Dict[str, Callable]) -> argparse.ArgumentParser:
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Literate programming tools built on docutils."
     )
-    parser.add_argument("--debug", action="store_true", help="enable debug mode")
+    _ = parser.add_argument("--debug", action="store_true", help="enable debug mode")
 
     subcommands = parser.add_subparsers(title="commands")
 
-    for name, command in commands.items():
-        doc = inspect.getdoc(command)
-        # TODO: Extract short 'help' text from `doc`
-        cmd = subcommands.add_parser(name, description=doc)
-        cmd.set_defaults(run=command)
+    extract_cmd = subcommands.add_parser("extract")
+    extract_cmd.set_defaults(run=extract)
+    _ = extract_cmd.add_argument(
+        "source", type=pathlib.Path, help="the source file to extract code from"
+    )
+    _ = extract_cmd.add_argument(
+        "-o", "--output", type=pathlib.Path, help="the location to write to"
+    )
 
-        for arg_name, type_ in typing.get_type_hints(command).items():
-            # TODO: Extract parameter help from `doc`
-            cmd.add_argument(arg_name, type=type_)
+    render_cmd = subcommands.add_parser("render")
+    render_cmd.set_defaults(run=render)
+    _ = render_cmd.add_argument(
+        "source", type=pathlib.Path, help="the source file to render"
+    )
 
     return parser
 
 
 def setup_logging():
     """Configure logging for the cli."""
-    logging.basicConfig(format="%(levelname)s: %(message)s")
+    logger = logging.getLogger("awdur")
+    logger.setLevel(logging.DEBUG)
+
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+
+    logger.addHandler(handler)
+    return logger
 
 
-def main(argv: Optional[Sequence[str]] = None):
-    cli = get_parser(_COMMANDS)
+def main(argv: Sequence[str] | None = None):
+    cli = get_parser()
     args = cli.parse_args(argv)
 
     if not hasattr(args, "run"):
@@ -81,10 +80,11 @@ def main(argv: Optional[Sequence[str]] = None):
         return 0
 
     arguments = vars(args)
-    command = arguments.pop("run")
+    command: Callable[..., Any] = arguments.pop("run")
+
+    arguments["logger"] = logger = call(setup_logging, arguments)
 
     try:
-        call(setup_logging, arguments)
         call(command, arguments)
     except bdb.BdbQuit:
         # Don't debug exiting from the debugger.

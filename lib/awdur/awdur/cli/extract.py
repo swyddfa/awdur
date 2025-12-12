@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import pathlib
-import sys
 
 from docutils import nodes
 from docutils.core import publish_parts
 from docutils.transforms import Transform
 from docutils.writers import Writer
-
-from ._core import command
 
 
 class CodeMetdataVisitor(nodes.SparseNodeVisitor):
@@ -87,42 +84,43 @@ class SourceCodeWriter(Writer):
 EXCLUDED_PARTS = {"encoding", "whole", "errors", "version"}
 
 
-@command
-def export(source: pathlib.Path, destination: pathlib.Path):
-    """Export source code
+def extract(source: pathlib.Path, *, output: pathlib.Path | None = None):
+    """Extract source code from documentation sources.
 
     Parameters
     ----------
     source
-       The source file to build
+       The source file to extract code from
 
-    destination
+    output
        The location to write to
     """
 
-    project = publish_parts(
+    parts = publish_parts(
         source=source.read_text(),
         source_path=str(source),
-        # destination_path="out.html",  # sys.stdout,
         writer=SourceCodeWriter(),
     )
 
-    encoding = project.get("encoding", "utf-8")
-    if (content := project.get("whole", None)) is not None:
+    encoding = parts.get("encoding", "utf-8")
+    if (content := parts.get("whole", None)) is not None:
         # A single file was produced, write that.
-        destination.write_text(content, encoding=encoding)
+        if output is None:
+            # TODO: Select file ext base on language
+            output = source.with_suffix(".py")
+        output.write_text(content, encoding=encoding)
         return
 
-    if (exists := destination.exists()) and not destination.is_dir():
-        raise ValueError(f"Cannot write multi-file project to: '{destination}'")
+    if (exists := output.exists()) and not output.is_dir():
+        raise ValueError(f"Cannot write multi-file project to: '{output}'")
     elif not exists:
-        destination.mkdir(parents=True)
+        output.mkdir(parents=True)
 
-    for name, content in project.items():
+    for name, content in parts.items():
         if name in EXCLUDED_PARTS:
             continue
 
-        outfile = destination / name
+        outfile = output / name
 
         # Projects may include subfolders.
         if not outfile.parent.exists():
