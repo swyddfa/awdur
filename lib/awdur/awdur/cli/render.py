@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import pathlib
-import sys
 
 from docutils.core import publish_file
 
-from ._core import command
 
-
-@command
-def bind(source: pathlib.Path):
-    """Produce documentation
+def render(source: pathlib.Path):
+    """Render sources to produce a documentation artifact.
 
     Parameters
     ----------
@@ -19,6 +15,6 @@ def bind(source: pathlib.Path):
     """
     publish_file(
         source_path=str(source),
-        destination_path="out.html",  # sys.stdout,
+        destination_path=str(source.with_suffix(".html")),
         writer_name="html5",
     )

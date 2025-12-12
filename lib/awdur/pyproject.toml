@@ -33,6 +33,9 @@ dependencies = [
 [project.optional-dependencies]
 sphinx = ["sphinx"]
 
+[dependency-groups]
+dev = ["pytest"]
+
 [project.urls]
 "Bug Tracker" = "https://github.com/swyddfa/awdur/issues"
 "Documentation" = "https://swyddfa.github.io/awdur/"
@@ -42,7 +45,7 @@ sphinx = ["sphinx"]
 awdur = "awdur.cli:main"
 
 [tool.coverage.run]
-parallel = true
+patch = ["subprocess"]
 source_pkgs = ["awdur"]
 
 [tool.coverage.report]
