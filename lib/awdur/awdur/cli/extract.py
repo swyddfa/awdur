@@ -73,7 +73,7 @@ class SourceCodeWriter(Writer):
             self.parts.setdefault(filename, []).append(node.astext())
 
         for name in all_filenames:
-            self.parts[name] = "\n".join(self.parts[name]) + "\n"
+            self.parts[name] = "\n\n".join(self.parts[name]) + "\n"
 
         # In the case we produce a single file, set the output also
         if len(all_filenames) == 1:
