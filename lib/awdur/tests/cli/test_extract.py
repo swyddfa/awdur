@@ -44,3 +44,35 @@ def test_extract_multiple_blocks(workspace: pathlib.Path):
         "- Area, A=6.0\n"
     )
     # fmt: on
+
+
+@pytest.mark.parametrize("workspace", ["multiple-files"], indirect=True)
+def test_extract_multiple_files(workspace: pathlib.Path):
+    """Ensure we can extract code from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "extract", "multiple-files.rst"], cwd=workspace
+    )
+    assert result.returncode == 0
+
+    # check fib.py
+    output = workspace / "multiple-files/fib.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    assert result.stdout.decode("utf-8") == (
+        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55\n"
+    )
+
+    # check square.py
+    output = workspace / "multiple-files/square.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    assert result.stdout.decode("utf-8") == (
+        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100\n"
+    )
