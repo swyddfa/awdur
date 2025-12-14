@@ -5,7 +5,13 @@ import bdb
 import inspect
 import logging
 import pathlib
+import sys
 import typing
+
+from docutils.parsers.rst import directives
+from docutils.parsers.rst.directives.body import CodeBlock
+
+from awdur.directives import define_codeblock
 
 from .extract import extract
 from .render import render
@@ -30,6 +36,14 @@ def call(fn: Callable[..., T], args: dict[str, Any]) -> T:
         kwargs[name] = args[name]
 
     return fn(**kwargs)
+
+
+def register_directives():
+    """Register our custom directives."""
+
+    codeblock = define_codeblock(CodeBlock)
+
+    directives.register_directive("code", codeblock)
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -84,8 +98,10 @@ def main(argv: Sequence[str] | None = None):
 
     arguments["logger"] = logger = call(setup_logging, arguments)
 
+    register_directives()
+
     try:
-        call(command, arguments)
+        sys.exit(call(command, arguments))
     except bdb.BdbQuit:
         # Don't debug exiting from the debugger.
         pass

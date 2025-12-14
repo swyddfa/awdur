@@ -37,3 +37,19 @@ def test_render_multiple_blocks(workspace: pathlib.Path):
 
     text = output.read_text()
     assert "<!DOCTYPE html>" in text
+
+
+@pytest.mark.parametrize("workspace", ["multiple-files"], indirect=True)
+def test_render_multiple_files(workspace: pathlib.Path):
+    """Ensure we can generate a html file from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "render", "multiple-files.rst"], cwd=workspace
+    )
+    assert result.returncode == 0
+
+    output = workspace / "multiple-files.html"
+    assert output.exists()
+
+    text = output.read_text()
+    assert "<!DOCTYPE html>" in text

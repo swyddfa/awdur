@@ -96,23 +96,45 @@ def extract(source: pathlib.Path, *, output: pathlib.Path | None = None):
        The location to write to
     """
 
-    parts = publish_parts(
+    parts: dict[str, Any] = publish_parts(
         source=source.read_text(),
         source_path=str(source),
         writer=SourceCodeWriter(),
     )
 
+    if parts.get("whole", None) is not None:
+        extract_single_file(source, parts, output)
+    else:
+        extract_mutliple_files(source, parts, output)
+
+
+def extract_single_file(
+    source: pathlib.Path, parts: dict[str, Any], output: pathlib.Path | None
+):
+    """Extract a single file from a published project."""
+    # A single file was produced, write that.
     encoding = parts.get("encoding", "utf-8")
-    if (content := parts.get("whole", None)) is not None:
-        # A single file was produced, write that.
-        if output is None:
-            # TODO: Select file ext base on language
-            output = source.with_suffix(".py")
-        output.write_text(content, encoding=encoding)
-        return
+    content = parts.get("whole")
+
+    if output is None:
+        # TODO: Select file ext base on language
+        output = source.with_suffix(".py")
+
+    output.write_text(content, encoding=encoding)
+
+
+def extract_mutliple_files(
+    source: pathlib.Path, parts: dict[str, Any], output: pathlib.Path | None
+):
+    """Extract multiple files from a published project."""
+    encoding = parts.get("encoding", "utf-8")
+
+    if output is None:
+        # By default write to a folder named the same as the input.
+        output = source.with_suffix("")
 
     if (exists := output.exists()) and not output.is_dir():
-        raise ValueError(f"Cannot write multi-file project to: '{output}'")
+        raise ValueError(f"Cannot write multi-file project to file: '{output}'")
     elif not exists:
         output.mkdir(parents=True)
 
