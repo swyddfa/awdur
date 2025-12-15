@@ -37,7 +37,7 @@ def test_hello_world_render(workspace: pathlib.Path):
     output = workspace / "out/hello-world.html"
     assert output.exists()
 
-    content = output.read_text()
+    content = output.read_text(encoding="utf-8")
     assert "<!DOCTYPE html>" in content
 
 
