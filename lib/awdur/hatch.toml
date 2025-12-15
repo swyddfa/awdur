@@ -7,3 +7,21 @@ include = ["awdur", "tests", "CHANGES.md"]
 
 [build.targets.wheel]
 packages = ["awdur"]
+
+[envs.hatch-test]
+matrix-name-format = "{variable}{value}"
+
+[[envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+sphinx = ["NO" ,"7", "8"]
+
+[[envs.hatch-test.matrix]]
+python = ["3.11", "3.12", "3.13", "3.14"]
+sphinx = ["9"]
+
+[envs.hatch-test.overrides]
+matrix.sphinx.dependencies = [
+    { value = "sphinx>=7,<8", if = ["7"] },
+    { value = "sphinx>=8,<9", if = ["8"] },
+    { value = "sphinx>=9,<10", if = ["9"] },
+]
