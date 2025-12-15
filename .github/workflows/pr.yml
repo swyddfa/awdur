@@ -1,0 +1,46 @@
+name: 'PR: awdur'
+on:
+  pull_request:
+    branches:
+    - develop
+    - release
+    paths:
+    - 'lib/awdur/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: astral-sh/setup-uv@v7
+
+    - run: |
+        set -e
+        uv tool install -p 3.14 hatch
+        uv tool install -p 3.14 towncrier
+        uv run -p 3.14 python ./scripts/make_release.py awdur
+      name: Set Version
+
+    - uses: hynek/build-and-inspect-python-package@v2
+      with:
+        path: lib/awdur
+
+  test:
+    name: "Python v${{ matrix.python-version }} -- ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+    - uses: actions/checkout@v5
+    - uses: astral-sh/setup-uv@v7
+
+    - run: |
+        cd lib/awdur
+
+        uvx hatch test --cover -i py=${{ matrix.python-version }}
+      name: Run Tests
