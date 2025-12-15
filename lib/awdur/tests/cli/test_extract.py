@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -38,10 +39,11 @@ def test_extract_multiple_blocks(workspace: pathlib.Path):
     assert result.returncode == 0
 
     # fmt: off
-    assert  result.stdout.decode("utf-8") == (
-        "A triangle with sides a=3, b=4, c=5 has\n"
-        "- Perimeter, P=12\n"
-        "- Area, A=6.0\n"
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        f"A triangle with sides a=3, b=4, c=5 has{os.linesep}"
+        f"- Perimeter, P=12{os.linesep}"
+        "- Area, A=6.0"
     )
     # fmt: on
 
@@ -62,8 +64,9 @@ def test_extract_multiple_files(workspace: pathlib.Path):
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
     assert result.returncode == 0
 
-    assert result.stdout.decode("utf-8") == (
-        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55\n"
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55"
     )
 
     # check square.py
@@ -73,6 +76,7 @@ def test_extract_multiple_files(workspace: pathlib.Path):
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
     assert result.returncode == 0
 
-    assert result.stdout.decode("utf-8") == (
-        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100\n"
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
     )
