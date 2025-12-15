@@ -4,5 +4,6 @@ __pycache__
 *.pyc
 .coverage
 .coverage.*
+.dir-locals.el
 out
 uv.lock
