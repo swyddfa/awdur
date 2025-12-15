@@ -4,6 +4,9 @@ import pathlib
 
 from docutils import io
 from docutils.core import Publisher
+from docutils.parsers import get_parser_class
+from docutils.readers import get_reader_class
+from docutils.writers import get_writer_class
 
 
 def render(source: pathlib.Path):
@@ -14,22 +17,22 @@ def render(source: pathlib.Path):
     source
        The source file to build.
     """
-    reader = "standalone"
-    parser = "restructuredtext"
-    writer = "html5"
+    reader = get_reader_class("standalone")
+    parser = get_parser_class("restructuredtext")
+    writer = get_writer_class("html5")
 
     publisher = Publisher(
-        reader,
-        parser,
-        writer,
+        reader(),
+        parser(),
+        writer(),
         settings=None,
         source_class=io.FileInput,
         destination_class=io.FileOutput,
     )
     publisher.process_programmatic_settings(None, {}, None)
 
-    publisher.set_source(source_path=source)
-    publisher.set_destination(destination_path=source.with_suffix(".html"))
+    publisher.set_source(source_path=str(source))
+    publisher.set_destination(destination_path=str(source.with_suffix(".html")))
 
     _output = publisher.publish(enable_exit_status=False)
 
