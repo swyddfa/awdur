@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import dataclasses
 import typing
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
+from jinja2 import BaseLoader
+from jinja2 import Environment
+from jinja2 import TemplateNotFound
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -12,16 +14,44 @@ if typing.TYPE_CHECKING:
     from typing import Any
 
 
-@dataclasses.dataclass
+DEFAULT_TEMPLATE = """\
+{%- block header %}{%- endblock %}
+{%- block content %}{{ "\n\n".join(content) }}{%- endblock %}
+{%- block footer %}{%- endblock %}
+
+"""
+
+
+class TemplateLoader(BaseLoader):
+    """Used to 'load' the templates defined by the project."""
+
+    def __init__(self):
+        self.templates: dict[str, str] = {"default": DEFAULT_TEMPLATE}
+
+    def get_source(
+        self, environment: Environment, template: str
+    ) -> tuple[str, None, None]:
+        if (source := self.templates.get(template, None)) is None:
+            raise TemplateNotFound(template)
+
+        return (source, None, None)
+
+
 class Project:
     """An awdur project."""
 
-    default_name: str
-    """The default base name to assign to the ``<<default>>`` file."""
+    def __init__(self, *, default_name: str = "out"):
+        self.default_name: str = default_name
+        """The name to assign to the ``<<default>>`` filename"""
 
-    structure: dict[str, Any] = dataclasses.field(default_factory=dict)
+        self.structure: dict[str, Any] = {}
+        """Represents the file hierarchy of the project"""
 
-    files: set[str] = dataclasses.field(default_factory=set)
+        self.files: set[str] = set()
+        """The set of all filenames in the project"""
+
+        self.templates: TemplateLoader = TemplateLoader()
+        """The set  of templates defined in the project"""
 
     def __len__(self):
         return len(self.files)
@@ -70,27 +100,30 @@ class Project:
 
     def export(self, output: pathlib.Path):
         """Export the project to the given location."""
+
+        env = Environment(loader=self.templates)
+
         if len(self) == 1:
-            self.export_single_file(output)
+            self.export_single_file(env, output)
             return
 
-        self.export_multiple_files(output)
+        self.export_multiple_files(env, output)
 
-    def export_multiple_files(self, output: pathlib.Path):
+    def export_multiple_files(self, env: Environment, output: pathlib.Path):
         """Export a multi-file project."""
         if output.exists() and not output.is_dir():
             raise ValueError(f"Cannot save multi-file project to file: {output}")
 
         for filename, parts in self.iter_files():
             outfile = output / filename
-            content = construct_file(parts)
+            content = render_file(env, filename, parts)
 
             if not outfile.parent.exists():
                 outfile.parent.mkdir(parents=True)
 
             _ = outfile.write_text(content)
 
-    def export_single_file(self, output: pathlib.Path):
+    def export_single_file(self, env: Environment, output: pathlib.Path):
         """Export a single file project."""
 
         (filename, parts) = next(self.iter_files())
@@ -102,19 +135,20 @@ class Project:
         else:
             output = output.with_name(filename)
 
-        content = construct_file(parts)
+        content = render_file(env, filename, parts)
         _ = output.write_text(content)
 
 
-def construct_file(parts: list[str]) -> str:
+def render_file(env: Environment, filename: str, content: list[str]) -> str:
     """Assemble a file out of its consituent parts."""
-    content = "\n\n".join(parts)
 
-    # Ensure files have a trailing new line
-    if content[-1] != "\n":
-        return content + "\n"
+    context = {
+        "filename": filename,
+        "content": content,
+    }
 
-    return content
+    template = env.get_template("default")
+    return template.render(**context)
 
 
 class ProjectBrowser(Directive):
