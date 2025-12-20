@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.resources
 import pathlib
 
 from docutils import io
@@ -29,7 +30,13 @@ def render(source: pathlib.Path, output: pathlib.Path | None):
         source_class=io.FileInput,
         destination_class=io.FileOutput,
     )
+
+    # It looks like the easiest way to inject additional stylesheets, rather than replace the defaults
+    # is to first let docutils initialize the default settings, then append the extra file(s) to the list
     publisher.process_programmatic_settings(None, {}, None)
+
+    stylesheet = importlib.resources.files("awdur.cli").joinpath("default_styles.css")
+    publisher.settings.stylesheet_path.append(str(stylesheet))
 
     publisher.set_source(source_path=str(source))
 

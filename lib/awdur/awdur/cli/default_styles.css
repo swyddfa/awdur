@@ -1,0 +1,13 @@
+/* Default styles for awdur components */
+pre.literal-block {
+    margin: 0;
+}
+
+div.awdur-codeblock {
+    margin: 1em 0;
+    border: solid 1px gray;
+}
+
+div.awdur-codeblock-header {
+    padding: 0 0.5em;
+}
