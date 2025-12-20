@@ -13,5 +13,8 @@ But if you are interested, below are some examples of what is currently possible
    :maxdepth: 1
 
    examples/hello-world
+   examples/multiple-blocks
+   examples/multiple-files
+   examples/inline-templates
 
 For a more "real world" example of this project in action you can check out my `blog <https://www.alcarney.me>`__

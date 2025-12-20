@@ -1,11 +1,9 @@
 [tool.esbonio.sphinx]
 buildCommand = ["sphinx-build", "-M", "dirhtml", ".", "${defaultBuildDir}"]
-pythonCommand = ["hatch", "-e", "docs", "run", "python"]
-
-[tool.hatch.envs.docs]
-installer = 'uv'
-skip-install = true
-dependencies = [
-    "sphinx",
-    "furo",
+pythonCommand = [
+    "uv", "run", "--no-project",
+    "--with", "sphinx",
+    "--with", "furo",
+    "--with-editable", "../lib/awdur",
+    "python",
 ]
