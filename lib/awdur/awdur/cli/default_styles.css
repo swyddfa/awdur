@@ -1,4 +1,4 @@
-/* Default styles for awdur components */
+/* Default styles for awdur components when rendering via docutils. */
 pre.literal-block {
     margin: 0;
 }
