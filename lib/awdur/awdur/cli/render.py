@@ -9,7 +9,7 @@ from docutils.readers import get_reader_class
 from docutils.writers import get_writer_class
 
 
-def render(source: pathlib.Path):
+def render(source: pathlib.Path, output: pathlib.Path | None):
     """Render sources to produce a documentation artifact.
 
     Parameters
@@ -32,7 +32,9 @@ def render(source: pathlib.Path):
     publisher.process_programmatic_settings(None, {}, None)
 
     publisher.set_source(source_path=str(source))
-    publisher.set_destination(destination_path=str(source.with_suffix(".html")))
+
+    destination = output or source.with_suffix(".html")
+    publisher.set_destination(destination_path=str(destination))
 
     _output = publisher.publish(enable_exit_status=False)
 
