@@ -80,3 +80,44 @@ def test_extract_multiple_files(workspace: pathlib.Path):
     assert stdout.strip() == (
         "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
     )
+
+
+@pytest.mark.parametrize("workspace", ["inline-templates"], indirect=True)
+def test_extract_inline_templates(workspace: pathlib.Path):
+    """Ensure we can extract code from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "extract", "inline-templates.rst"],
+        cwd=workspace,
+    )
+    assert result.returncode == 0
+
+    # check triangle.el
+    output = workspace / "inline-templates/triangle.el"
+    assert output.exists()
+    assert output.read_text() == (
+        ";;; triangle.el --- Description\n"
+        "\n"
+        "(defun triangle-area (a b c)\n"
+        "  (* 0.5 a b))\n"
+        "\n"
+        "(defun triangle-perimeter (a b c)\n"
+        "  (+ a b c))\n"
+        "\n"
+        "(provide 'triangle)\n"
+    )
+
+    # check rectangle.el
+    output = workspace / "inline-templates/rectangle.el"
+    assert output.exists()
+    assert output.read_text() == (
+        ";;; rectangle.el --- Description\n"
+        "\n"
+        "(defun rectangle-area (w h)\n"
+        "  (* w h))\n"
+        "\n"
+        "(defun rectangle-perimeter (w h)\n"
+        "  (* 2 (+ w h))\n"
+        "\n"
+        "(provide 'rectangle)\n"
+    )

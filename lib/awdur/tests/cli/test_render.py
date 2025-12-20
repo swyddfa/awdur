@@ -53,3 +53,19 @@ def test_render_multiple_files(workspace: pathlib.Path):
 
     text = output.read_text()
     assert "<!DOCTYPE html>" in text
+
+
+@pytest.mark.parametrize("workspace", ["inline-templates"], indirect=True)
+def test_render_inline_templates(workspace: pathlib.Path):
+    """Ensure we can generate a html file from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "render", "inline-templates.rst"], cwd=workspace
+    )
+    assert result.returncode == 0
+
+    output = workspace / "inline-templates.html"
+    assert output.exists()
+
+    text = output.read_text()
+    assert "<!DOCTYPE html>" in text
