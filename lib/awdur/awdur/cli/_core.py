@@ -12,13 +12,16 @@ from docutils.parsers.rst import directives
 from docutils.parsers.rst.directives.body import CodeBlock
 
 from awdur.directives import define_codeblock
+from awdur.directives import define_template
 
 from .extract import extract
 from .render import render
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
-    from typing import Any, TypeVar
+    from collections.abc import Callable
+    from collections.abc import Sequence
+    from typing import Any
+    from typing import TypeVar
 
     T = TypeVar("T")
 
@@ -42,8 +45,10 @@ def register_directives():
     """Register our custom directives."""
 
     codeblock = define_codeblock(CodeBlock)
+    template = define_template(CodeBlock)
 
     directives.register_directive("code", codeblock)
+    directives.register_directive("template-code", template)
 
 
 def get_parser() -> argparse.ArgumentParser:
