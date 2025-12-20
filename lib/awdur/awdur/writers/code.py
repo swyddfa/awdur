@@ -80,4 +80,10 @@ class SourceCodeWriter(Writer):
             filename = node.attributes.get("filename", "<<default>>")
             code = node.astext()
 
-            self.project.add_fragment(code, filename)
+            if (kind := node.attributes.get("kind")) == "code":
+                template = node.attributes.get("template", None)
+                self.project.add_fragment(code, filename, template=template)
+
+            elif kind == "template":
+                name = node.attributes["name"]
+                self.project.add_template(name, code)

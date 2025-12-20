@@ -22,11 +22,27 @@ DEFAULT_TEMPLATE = """\
 """
 
 
+class ProjectFile:
+    """Represents a file within a project."""
+
+    def __init__(
+        self, template: str = "default", slots: dict[str, list[str]] | None = None
+    ):
+        self.template: str = template
+        self.slots: dict[str, list[str]] = slots or {}
+
+    def add_fragment(self, slot: str, code: str):
+        self.slots.setdefault(slot, []).append(code)
+
+
 class TemplateLoader(BaseLoader):
     """Used to 'load' the templates defined by the project."""
 
     def __init__(self):
         self.templates: dict[str, str] = {"default": DEFAULT_TEMPLATE}
+
+    def add_template(self, name: str, code: str):
+        self.templates[name] = code
 
     def get_source(
         self, environment: Environment, template: str
@@ -44,21 +60,18 @@ class Project:
         self.default_name: str = default_name
         """The name to assign to the ``<<default>>`` filename"""
 
-        self.structure: dict[str, Any] = {}
+        self.files: dict[str, Any] = {}
         """Represents the file hierarchy of the project"""
-
-        self.files: set[str] = set()
-        """The set of all filenames in the project"""
 
         self.templates: TemplateLoader = TemplateLoader()
         """The set  of templates defined in the project"""
 
     def __len__(self):
-        return len(self.files)
+        return len(list(self.iter_files()))
 
     def iter(self):
         """Iterate over the project's structure."""
-        dirs = [("", self.structure)]
+        dirs = [("", self.files)]
 
         try:
             while dir_ := dirs.pop(0):
@@ -77,7 +90,7 @@ class Project:
         except IndexError:
             pass
 
-    def iter_files(self) -> Generator[tuple[str, list[str]], Any, Any]:
+    def iter_files(self) -> Generator[tuple[str, ProjectFile], Any, Any]:
         """Iterate over all the files in the project."""
         for type_, filename, item in self.iter():
             if type_ != "file":
@@ -85,24 +98,29 @@ class Project:
 
             yield filename, item
 
-    def add_fragment(self, code: str, filename: str):
+    def add_fragment(self, code: str, filename: str, template: str | None = None):
         """Add a code fragment to the project."""
 
-        self.files.add(filename)
-
-        dir_ = self.structure
+        dir_ = self.files
         *parents, name = filename.split("/")
 
         for parent in parents:
             dir_ = dir_.setdefault(parent, {})
 
-        dir_.setdefault(name, []).append(code)
+        file = dir_.setdefault(name, ProjectFile())
+        file.add_fragment("content", code)
+
+        if template is not None:
+            file.template = template
+
+    def add_template(self, name: str, code: str):
+        """Define a new code template"""
+        self.templates.add_template(name, code)
 
     def export(self, output: pathlib.Path):
         """Export the project to the given location."""
 
         env = Environment(loader=self.templates)
-
         if len(self) == 1:
             self.export_single_file(env, output)
             return
@@ -114,9 +132,13 @@ class Project:
         if output.exists() and not output.is_dir():
             raise ValueError(f"Cannot save multi-file project to file: {output}")
 
-        for filename, parts in self.iter_files():
+        for filename, file in self.iter_files():
+            # The default file is not exported in multi-file projects
+            if filename == "<<default>>":
+                continue
+
             outfile = output / filename
-            content = render_file(env, filename, parts)
+            content = render_file(env, filename=outfile, file=file)
 
             if not outfile.parent.exists():
                 outfile.parent.mkdir(parents=True)
@@ -126,7 +148,7 @@ class Project:
     def export_single_file(self, env: Environment, output: pathlib.Path):
         """Export a single file project."""
 
-        (filename, parts) = next(self.iter_files())
+        (filename, file) = next(self.iter_files())
         if filename == "<<default>>":
             filename = f"{self.default_name}.py"
 
@@ -135,19 +157,18 @@ class Project:
         else:
             output = output.with_name(filename)
 
-        content = render_file(env, filename, parts)
+        content = render_file(env, filename=output, file=file)
         _ = output.write_text(content)
 
 
-def render_file(env: Environment, filename: str, content: list[str]) -> str:
-    """Assemble a file out of its consituent parts."""
-
+def render_file(env: Environment, filename: pathlib.Path, file: ProjectFile) -> str:
+    """Render a file to plain text"""
     context = {
-        "filename": filename,
-        "content": content,
+        "path": filename,
+        **file.slots,
     }
 
-    template = env.get_template("default")
+    template = env.get_template(file.template)
     return template.render(**context)
 
 
