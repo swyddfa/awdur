@@ -73,6 +73,9 @@ def get_parser() -> argparse.ArgumentParser:
     _ = render_cmd.add_argument(
         "source", type=pathlib.Path, help="the source file to render"
     )
+    _ = render_cmd.add_argument(
+        "-o", "--output", type=pathlib.Path, help="the location to write to"
+    )
 
     return parser
 
