@@ -37,8 +37,9 @@ class RenderDirective(SphinxDirective):
 
     def run(self):
         source = (self.env.app.srcdir / self.arguments[0]).resolve()
-        outname = f"_awdur_renders/{source.stem}.html"
-        output = self.env.app.outdir / outname
+
+        outname = f"_awdur_renders/{source.stem}"
+        output = self.env.app.outdir / f"{outname}.html"
 
         if not output.parent.exists():
             output.parent.mkdir(parents=True)
@@ -57,10 +58,11 @@ class RenderDirective(SphinxDirective):
         if result.returncode != 0:
             raise RuntimeError("Unable to render file")
 
+        builder = self.env.app.builder
         iframe_attrs = {
             "height": self.options.get("height", "100%"),
             "width": self.options.get("width", "100%"),
-            "src": f"/{outname}",
+            "src": builder.get_relative_uri(self.env.docname, outname),
         }
         iframe_attr_str = " ".join([f'{k}="{v}"' for k, v in iframe_attrs.items()])
 
