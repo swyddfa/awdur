@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import importlib.metadata
 import typing
 
 from sphinx.directives.code import CodeBlock
 
+from awdur import __version__
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 
@@ -27,4 +27,4 @@ def setup(app: Sphinx):
     app.add_domain(AwdurDomain)
     app.add_builder(AwdurBuilder)
 
-    return {"version": importlib.metadata.version("awdur"), "parallel_read_safe": True}
+    return {"version": __version__, "parallel_read_safe": True}
