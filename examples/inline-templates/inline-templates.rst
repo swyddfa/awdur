@@ -19,10 +19,10 @@ This structure can be expressed in a template removing the need to include rando
 Defining Templates
 ------------------
 
-A template can be defined using the ``.. template-code::`` directive.
+A template can be defined using the ``.. awdur:template::`` directive.
 ``awdur`` uses `Jinja <https://jinja.palletsprojects.com/en/stable/>`__ for its template engine.
 
-.. template-code:: elisp-module
+.. awdur:template:: elisp-module
 
    {% extends "default" %}
 

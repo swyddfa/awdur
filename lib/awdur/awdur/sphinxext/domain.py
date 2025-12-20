@@ -27,9 +27,8 @@ class AwdurDomain(Domain):
 
     object_types: dict[str, ObjType] = {}
 
-    directives = {
-        "project-browser": ProjectBrowser,
-    }
+    # Directives are populated dynamically during extension setup.
+    directives = {}
 
     roles = {}
 
