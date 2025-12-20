@@ -196,3 +196,79 @@ def test_multiple_files_extract(workspace: pathlib.Path):
     assert stdout.strip() == (
         "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
     )
+
+
+@pytest.mark.parametrize("workspace", ["inline-templates"], indirect=True)
+@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
+def test_inline_templates_render(workspace: pathlib.Path):
+    """Ensure that we can render docs from our inline template example."""
+
+    # fmt: off
+    cmd = [
+        sys.executable, "-m", "sphinx",
+        ".", "out",
+        "-b", "singlehtml",
+        "-C",
+        "-D", "root_doc=inline-templates",
+        "-D", "extensions=awdur.sphinxext",
+    ]
+    # fmt: on
+
+    result = subprocess.run(cmd, cwd=workspace)
+    assert result.returncode == 0
+
+    output = workspace / "out/inline-templates.html"
+    assert output.exists()
+
+    content = output.read_text()
+    assert "<!DOCTYPE html>" in content
+
+
+@pytest.mark.parametrize("workspace", ["inline-templates"], indirect=True)
+@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
+def test_multiple_files_extract(workspace: pathlib.Path):
+    """Ensure that we can extract code from our inline templates example."""
+
+    # fmt: off
+    cmd = [
+        sys.executable, "-m", "sphinx",
+        ".", "out",
+        "-b", "awdur",
+        "-C",
+        "-D", "root_doc=inline-templates",
+        "-D", "extensions=awdur.sphinxext",
+    ]
+    # fmt: on
+
+    result = subprocess.run(cmd, cwd=workspace)
+    assert result.returncode == 0
+
+    # check triangle.el
+    output = workspace / "out/triangle.el"
+    assert output.exists()
+    assert output.read_text() == (
+        ";;; triangle.el --- Description\n"
+        "\n"
+        "(defun triangle-area (a b c)\n"
+        "  (* 0.5 a b))\n"
+        "\n"
+        "(defun triangle-perimeter (a b c)\n"
+        "  (+ a b c))\n"
+        "\n"
+        "(provide 'triangle)\n"
+    )
+
+    # check rectangle.el
+    output = workspace / "out/rectangle.el"
+    assert output.exists()
+    assert output.read_text() == (
+        ";;; rectangle.el --- Description\n"
+        "\n"
+        "(defun rectangle-area (w h)\n"
+        "  (* w h))\n"
+        "\n"
+        "(defun rectangle-perimeter (w h)\n"
+        "  (* 2 (+ w h))\n"
+        "\n"
+        "(provide 'rectangle)\n"
+    )

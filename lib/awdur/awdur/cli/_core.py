@@ -48,7 +48,7 @@ def register_directives():
     template = define_template(CodeBlock)
 
     directives.register_directive("code", codeblock)
-    directives.register_directive("template-code", template)
+    directives.register_directive("awdur:template", template)
 
 
 def get_parser() -> argparse.ArgumentParser:
