@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.resources
+import pathlib
 import typing
 
 from sphinx.directives.code import CodeBlock
@@ -15,6 +17,19 @@ if typing.TYPE_CHECKING:
     from sphinx.application import Sphinx
 
 
+def inject_css(app: Sphinx):
+    """Add our  CSS to the build."""
+
+    if "html" not in app.builder.name:
+        return
+
+    resources = importlib.resources.files("awdur.sphinxext").joinpath("_static")
+    app.config.html_static_path.append(str(resources))
+
+    style_name = "awdur-styles.css"
+    app.add_css_file(style_name)
+
+
 def setup(app: Sphinx):
     codeblock = define_codeblock(CodeBlock)
 
@@ -26,5 +41,7 @@ def setup(app: Sphinx):
 
     app.add_domain(AwdurDomain)
     app.add_builder(AwdurBuilder)
+
+    _ = app.connect("builder-inited", inject_css)
 
     return {"version": __version__, "parallel_read_safe": True}

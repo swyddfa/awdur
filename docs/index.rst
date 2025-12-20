@@ -18,3 +18,9 @@ But if you are interested, below are some examples of what is currently possible
    examples/inline-templates
 
 For a more "real world" example of this project in action you can check out my `blog <https://www.alcarney.me>`__
+
+.. toctree::
+   :hidden:
+   :caption: Reference
+
+   directives
