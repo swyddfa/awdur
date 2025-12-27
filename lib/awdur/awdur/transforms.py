@@ -5,6 +5,7 @@ import typing
 from docutils import nodes
 from docutils.transforms import Transform
 
+from awdur.directives import project_tree
 from awdur.project import Project
 
 
@@ -41,6 +42,9 @@ class CodeMetdataVisitor(nodes.SparseNodeVisitor):
             if name not in node.attributes:
                 node.attributes[name] = value
 
+    def visit_project_tree(self, node: project_tree) -> None:
+        pass
+
 
 class ResolveProjectMetadataTransform(Transform):
     """A transform for resolving and inlining metadata relevant to projects."""
@@ -71,3 +75,21 @@ class BuildProjectsTransform(Transform):
             elif kind == "template":
                 name = node.attributes["name"]
                 project.add_template(name, code)
+
+
+class ProjectBrowserTransform(Transform):
+    """Transform that converts the ``project_tree`` node into an actual project tree."""
+
+    default_priority = BuildProjectsTransform.default_priority + 1
+
+    def apply(self):
+        project: Project = self.document.settings.awdur_project
+        content = project.render_html()
+        tree = nodes.raw("", content, format="html")
+
+        for node in self.document.findall(condition=project_tree):
+            parent = node.parent
+            idx = parent.children.index(node)
+            parent.children.remove(node)
+
+            parent.children.insert(idx, tree)
