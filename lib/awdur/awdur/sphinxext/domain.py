@@ -11,8 +11,6 @@ from docutils.parsers.rst import directives
 from sphinx.domains import Domain
 from sphinx.util.docutils import SphinxDirective
 
-from awdur.project import ProjectBrowser
-
 if typing.TYPE_CHECKING:
     from typing import Any
 
