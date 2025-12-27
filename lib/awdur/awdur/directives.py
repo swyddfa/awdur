@@ -3,10 +3,8 @@ from __future__ import annotations
 import typing
 
 from docutils import nodes
+from docutils.parsers.rst import Directive
 from docutils.parsers.rst import directives
-
-if typing.TYPE_CHECKING:
-    from docutils.parsers.rst import Directive
 
 
 def define_codeblock(base: type[Directive]) -> type[Directive]:
@@ -97,3 +95,16 @@ def define_template(base: type[Directive]) -> type[Directive]:
             "run": run,
         },
     )
+
+
+class ProjectBrowser(Directive):
+    """A directive that inserts a project file browser into the page."""
+
+    required_arguments = 0
+
+    def run(self):
+        return [project_tree("", name="default")]
+
+
+class project_tree(nodes.General, nodes.Element):
+    pass

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import functools
+import pathlib
 import typing
 
-from docutils import nodes
-from docutils.parsers.rst import Directive
 from jinja2 import BaseLoader
 from jinja2 import Environment
 from jinja2 import TemplateNotFound
 
 if typing.TYPE_CHECKING:
-    import pathlib
     from collections.abc import Generator
     from typing import Any
 
@@ -18,6 +17,21 @@ DEFAULT_TEMPLATE = """\
 {%- block header %}{%- endblock %}
 {%- block content %}{{ "\n\n".join(content) }}{%- endblock %}
 {%- block footer %}{%- endblock %}
+
+"""
+
+HTML_TEMPLATE = """\
+{%- for item_type, path, item in project.iter() %}
+  {%- if item_type == "enter_dir" %}
+    <details><summary>{{ path.name }}</summary>
+  {%- elif item_type == "exit_dir" %}
+    </details>
+  {%- elif item_type == "file" %}
+    <details><summary>{{ path.name }}</summary>
+    {{ render_file(path, item) }}
+    </details>
+  {%- endif %}
+{%- endfor %}
 
 """
 
@@ -39,7 +53,10 @@ class TemplateLoader(BaseLoader):
     """Used to 'load' the templates defined by the project."""
 
     def __init__(self):
-        self.templates: dict[str, str] = {"default": DEFAULT_TEMPLATE}
+        self.templates: dict[str, str] = {
+            "default": DEFAULT_TEMPLATE,
+            "awdur:project_tree": HTML_TEMPLATE,
+        }
 
     def add_template(self, name: str, code: str):
         self.templates[name] = code
@@ -71,26 +88,30 @@ class Project:
 
     def iter(self):
         """Iterate over the project's structure."""
-        dirs = [("", self.files)]
+        yield from self._iter_dir(self.files)
 
-        try:
-            while dir_ := dirs.pop(0):
-                path, items = dir_
+    def _iter_dir(self, directory: dict[str, Any], parent: str = ""):
+        def sort_order(name: str):
+            item = directory[name]
+            if isinstance(item, dict):
+                return (0, name)
 
-                for name, item in items.items():
-                    fullname = f"{path}/{name}" if path else name
+            return (1, name)
 
-                    if isinstance(item, dict):
-                        # Queue the sub-directory to be iterated over
-                        dirs.append((fullname, item))
-                        yield "directory", fullname, item
-                    else:
-                        yield "file", fullname, item
+        for key in sorted(directory.keys(), key=sort_order):
+            item = directory[key]
+            fullname = pathlib.Path(parent, key)
 
-        except IndexError:
-            pass
+            if isinstance(item, dict):
+                yield "directory", fullname, item
+                yield "enter_dir", fullname, None
+                yield from self._iter_dir(item, str(fullname))
+                yield "exit_dir", fullname, None
 
-    def iter_files(self) -> Generator[tuple[str, ProjectFile], Any, Any]:
+            else:
+                yield "file", fullname, item
+
+    def iter_files(self) -> Generator[tuple[pathlib.Path, ProjectFile], Any, Any]:
         """Iterate over all the files in the project."""
         for type_, filename, item in self.iter():
             if type_ != "file":
@@ -116,6 +137,14 @@ class Project:
     def add_template(self, name: str, code: str):
         """Define a new code template"""
         self.templates.add_template(name, code)
+
+    def render_html(self):
+        """Produce a html representation of the project."""
+        env = Environment(loader=self.templates)
+        template = env.get_template("awdur:project_tree")
+        return template.render(
+            project=self, render_file=functools.partial(render_file, env)
+        )
 
     def export(self, output: pathlib.Path):
         """Export the project to the given location."""
@@ -170,16 +199,3 @@ def render_file(env: Environment, filename: pathlib.Path, file: ProjectFile) -> 
 
     template = env.get_template(file.template)
     return template.render(**context)
-
-
-class ProjectBrowser(Directive):
-    """A directive that inserts a project file browser into the page."""
-
-    required_arguments = 0
-
-    def run(self):
-        return [project_node("", name="default")]
-
-
-class project_node(nodes.General, nodes.Element):
-    pass
