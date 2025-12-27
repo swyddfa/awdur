@@ -7,7 +7,9 @@ from docutils import io
 from docutils.core import Publisher
 from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
-from docutils.writers import get_writer_class
+
+from awdur.project import Project
+from awdur.writers import HTMLWriter
 
 
 def render(source: pathlib.Path, output: pathlib.Path | None):
@@ -18,14 +20,14 @@ def render(source: pathlib.Path, output: pathlib.Path | None):
     source
        The source file to build.
     """
-    reader = get_reader_class("standalone")
-    parser = get_parser_class("restructuredtext")
-    writer = get_writer_class("html5")
+    reader_cls = get_reader_class("standalone")
+    parser_cls = get_parser_class("restructuredtext")
+    writer = HTMLWriter()
 
     publisher = Publisher(
-        reader(),
-        parser(),
-        writer(),
+        reader=reader_cls(),
+        parser=parser_cls(),
+        writer=writer,
         settings=None,
         source_class=io.FileInput,
         destination_class=io.FileOutput,
@@ -33,7 +35,12 @@ def render(source: pathlib.Path, output: pathlib.Path | None):
 
     # It looks like the easiest way to inject additional stylesheets, rather than replace the defaults
     # is to first let docutils initialize the default settings, then append the extra file(s) to the list
-    publisher.process_programmatic_settings(None, {}, None)
+    project = Project(default_name=source.stem)
+    publisher.process_programmatic_settings(
+        settings_spec=None,
+        settings_overrides={"awdur_project": project},
+        config_section=None,
+    )
 
     stylesheet = importlib.resources.files("awdur.cli").joinpath("default_styles.css")
     publisher.settings.stylesheet_path.append(str(stylesheet))

@@ -7,7 +7,6 @@ from docutils import io
 from sphinx.builders import Builder
 from sphinx.util.display import status_iterator
 
-from awdur.project import Project
 from awdur.writers import SourceCodeWriter
 
 if typing.TYPE_CHECKING:
@@ -33,8 +32,6 @@ class AwdurBuilder(Builder):
         if not self.outpath.exists():
             self.outpath.mkdir(parents=True)
 
-        self.project = Project(default_name=self.app.config.root_doc)
-
     def get_outdated_docs(self) -> str | Iterable[str]:
         """Return the outdated docs that need to be processed."""
         # For now, return everything
@@ -52,10 +49,8 @@ class AwdurBuilder(Builder):
     def write_doc(self, docname: str, doctree: nodes.document) -> None:
         """'Write' the given document to extract the code."""
 
-        writer = SourceCodeWriter(self.project)
-        _ = writer.write(doctree, io.NullOutput())
-
     def finish(self):
         """Actually write all the code to disk"""
 
-        self.project.export(self.outpath)
+        project = self.env.settings["awdur_project"]
+        project.export(self.outpath)
