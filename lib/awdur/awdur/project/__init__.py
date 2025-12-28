@@ -169,7 +169,7 @@ class Project:
 
         for filename, file in self.iter_files():
             # The default file is not exported in multi-file projects
-            if filename == "<<default>>":
+            if filename.name == "<<default>>":
                 continue
 
             outfile = output / filename
@@ -184,13 +184,13 @@ class Project:
         """Export a single file project."""
 
         (filename, file) = next(self.iter_files())
-        if filename == "<<default>>":
-            filename = f"{self.default_name}.py"
+        if filename.name == "<<default>>":
+            filename = pathlib.Path(f"{self.default_name}.py")
 
         if output.exists() and output.is_dir():
             output = output / filename
         else:
-            output = output.with_name(filename)
+            output = output.with_name(filename.name)
 
         content = render_file(env, filename=output, file=file)
         _ = output.write_text(content)

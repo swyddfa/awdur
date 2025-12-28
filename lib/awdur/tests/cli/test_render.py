@@ -69,3 +69,19 @@ def test_render_inline_templates(workspace: pathlib.Path):
 
     text = output.read_text()
     assert "<!DOCTYPE html>" in text
+
+
+@pytest.mark.parametrize("workspace", ["project-tree"], indirect=True)
+def test_render_project_tree(workspace: pathlib.Path):
+    """Ensure we can generate a html file from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "render", "project-tree.rst"], cwd=workspace
+    )
+    assert result.returncode == 0
+
+    output = workspace / "project-tree.html"
+    assert output.exists()
+
+    text = output.read_text()
+    assert "<!DOCTYPE html>" in text

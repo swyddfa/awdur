@@ -121,3 +121,60 @@ def test_extract_inline_templates(workspace: pathlib.Path):
         "\n"
         "(provide 'rectangle)\n"
     )
+
+
+@pytest.mark.parametrize("workspace", ["project-tree"], indirect=True)
+def test_extract_project_tree(workspace: pathlib.Path):
+    """Ensure we can extract code from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "extract", "project-tree.rst"],
+        cwd=workspace,
+    )
+    assert result.returncode == 0
+
+    # check hello.py
+    output = workspace / "project-tree/hello.py"
+    assert output.exists()
+
+    assert 'print("Hello, World!")\n' == output.read_text()
+
+    # check math/fib.py
+    output = workspace / "project-tree/math/fib.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55"
+    )
+
+    # check math/square.py
+    output = workspace / "project-tree/math/square.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
+    )
+
+    # check shapes/triangle.py
+    output = workspace / "project-tree/shapes/triangle.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    # fmt: off
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        f"A triangle with sides a=3, b=4, c=5 has{os.linesep}"
+        f"- Perimeter, P=12{os.linesep}"
+        "- Area, A=6.0"
+    )
+    # fmt: on
