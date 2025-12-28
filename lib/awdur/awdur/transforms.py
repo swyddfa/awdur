@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import typing
-
 from docutils import nodes
 from docutils.transforms import Transform
 
@@ -20,19 +18,19 @@ class CodeMetdataVisitor(nodes.SparseNodeVisitor):
     def visit_docinfo(self, node: nodes.docinfo):
         """Set the context based on docinfo fields."""
 
-        for field in node:
-            name = field[0].astext()
-            value = field[1].astext()
+        # for field in node:
+        #     name = field[0].astext()
+        #     value = field[1].astext()
 
-            self.context[name] = value
+        #     self.context[name] = value
 
     def visit_field_list(self, node: nodes.field_list):
         """Set the context based on the current field list."""
-        for field in node:
-            name = field[0].astext()
-            value = field[1].astext()
+        # for field in node:
+        #     name = field[0].astext()
+        #     value = field[1].astext()
 
-            self.context[name] = value
+        #     self.context[name] = value
 
     def visit_literal_block(self, node: nodes.literal_block):
         """If there is a current context, use it to fill in any missing blanks in the
