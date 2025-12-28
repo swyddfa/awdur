@@ -9,7 +9,7 @@ from awdur import __version__
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 from awdur.directives import project_tree
-from awdur.project import Project
+from awdur.project import ProjectManager
 from awdur.transforms import BuildProjectsTransform
 from awdur.transforms import ProjectBrowserTransform
 from awdur.transforms import ResolveProjectMetadataTransform
@@ -32,7 +32,9 @@ def env_get_outdated(
     removed: set[str],
 ) -> Sequence[str]:
     """Setup the project instance to use."""
-    env.settings["awdur_project"] = Project(default_name=app.config.root_doc)
+    env.settings["awdur_project_manager"] = ProjectManager(
+        default_name=app.config.root_doc
+    )
 
     return set()
 
@@ -50,7 +52,8 @@ def inject_css(app: Sphinx):
     app.add_css_file(style_name)
 
 
-def no_op(self, node): ...
+def no_op(self, node):
+    ...
 
 
 def setup(app: Sphinx):

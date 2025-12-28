@@ -74,6 +74,23 @@ class TemplateLoader(BaseLoader):
         return (source, None, None)
 
 
+class ProjectManager:
+    """Manages multiple Project instances."""
+
+    def __init__(self, *, default_name: str = "out"):
+        self.default_name: str = default_name
+        self.projects: dict[str, Project] = {}
+
+    def __contains__(self, key: str):
+        return key in self.projects
+
+    def __getitem__(self, key: str):
+        if key not in self.projects:
+            self.projects[key] = Project(default_name=self.default_name)
+
+        return self.projects[key]
+
+
 class Project:
     """An awdur project."""
 

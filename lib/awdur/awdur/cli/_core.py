@@ -67,6 +67,13 @@ def get_parser() -> argparse.ArgumentParser:
         "source", type=pathlib.Path, help="the source file to extract code from"
     )
     _ = extract_cmd.add_argument(
+        "-p",
+        "--project",
+        dest="project_name",
+        default="default",
+        help="the code project to extract",
+    )
+    _ = extract_cmd.add_argument(
         "-o", "--output", type=pathlib.Path, help="the location to write to"
     )
 

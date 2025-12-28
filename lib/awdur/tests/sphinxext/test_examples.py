@@ -174,7 +174,7 @@ def test_multiple_files_extract(workspace: pathlib.Path):
     assert result.returncode == 0
 
     # check fib.py
-    output = workspace / "out/fib.py"
+    output = workspace / "out/default/fib.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -186,7 +186,7 @@ def test_multiple_files_extract(workspace: pathlib.Path):
     )
 
     # check square.py
-    output = workspace / "out/square.py"
+    output = workspace / "out/default/square.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -244,7 +244,7 @@ def test_inline_templates_extract(workspace: pathlib.Path):
     assert result.returncode == 0
 
     # check triangle.el
-    output = workspace / "out/triangle.el"
+    output = workspace / "out/default/triangle.el"
     assert output.exists()
     assert output.read_text() == (
         ";;; triangle.el --- Description\n"
@@ -259,7 +259,7 @@ def test_inline_templates_extract(workspace: pathlib.Path):
     )
 
     # check rectangle.el
-    output = workspace / "out/rectangle.el"
+    output = workspace / "out/default/rectangle.el"
     assert output.exists()
     assert output.read_text() == (
         ";;; rectangle.el --- Description\n"
@@ -320,13 +320,13 @@ def test_project_tree_extract(workspace: pathlib.Path):
     assert result.returncode == 0
 
     # check hello.py
-    output = workspace / "out/hello.py"
+    output = workspace / "out/default/hello.py"
     assert output.exists()
 
     assert 'print("Hello, World!")\n' == output.read_text()
 
     # check math/fib.py
-    output = workspace / "out/math/fib.py"
+    output = workspace / "out/default/math/fib.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -338,7 +338,7 @@ def test_project_tree_extract(workspace: pathlib.Path):
     )
 
     # check math/square.py
-    output = workspace / "out/math/square.py"
+    output = workspace / "out/default/math/square.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -350,7 +350,7 @@ def test_project_tree_extract(workspace: pathlib.Path):
     )
 
     # check shapes/triangle.py
-    output = workspace / "out/shapes/triangle.py"
+    output = workspace / "out/default/shapes/triangle.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)

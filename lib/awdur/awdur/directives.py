@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import typing
-
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from docutils.parsers.rst import directives
@@ -21,6 +19,7 @@ def define_codeblock(base: type[Directive]) -> type[Directive]:
             return result
 
         code.attributes["kind"] = "code"
+        code.attributes["project"] = self.options.get("project", "default")
         code.attributes["template"] = self.options.get("template")
 
         if (filename := self.options.get("filename")) is not None:
@@ -46,6 +45,7 @@ def define_codeblock(base: type[Directive]) -> type[Directive]:
             "option_spec": {
                 **base.option_spec,
                 "filename": directives.uri,
+                "project": directives.unchanged,
                 "template": directives.unchanged,
             },
             "run": run,
@@ -70,6 +70,7 @@ def define_template(base: type[Directive]) -> type[Directive]:
 
         code.attributes["kind"] = "template"
         code.attributes["name"] = template_name
+        code.attributes["project"] = self.options.get("project", "default")
 
         # Add a header to the code block indicating where it is being saved to.
         header = nodes.container(
@@ -91,6 +92,7 @@ def define_template(base: type[Directive]) -> type[Directive]:
             "required_arguments": 1,
             "option_spec": {
                 **base.option_spec,
+                "project": directives.unchanged,
             },
             "run": run,
         },
@@ -101,9 +103,15 @@ class ProjectTreeDirective(Directive):
     """A directive that inserts a project file browser into the page."""
 
     required_arguments = 0
+    optional_arguments = 1
 
     def run(self):
-        return [project_tree("", name="default")]
+        if len(self.arguments) > 0:
+            name = self.arguments[0]
+        else:
+            name = "default"
+
+        return [project_tree(name=name)]
 
 
 class project_tree(nodes.General, nodes.Element):
