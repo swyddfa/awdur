@@ -21,18 +21,22 @@ DEFAULT_TEMPLATE = """\
 """
 
 HTML_TEMPLATE = """\
+<div class="awdur-project-tree">
 {%- for item_type, path, item in project.iter() %}
   {%- if item_type == "enter_dir" %}
-    <details><summary>{{ path.name }}</summary>
+    <details class="awdur-directory"><summary>{{ path.name }}</summary>
+      <div class="awdur-directory-contents">
   {%- elif item_type == "exit_dir" %}
-    </details>
+    </div></details>
   {%- elif item_type == "file" %}
-    <details><summary>{{ path.name }}</summary>
-    {{ render_file(path, item) }}
+    <details class="awdur-file"><summary>{{ path.name }}</summary>
+      <pre class="code literal-block"><code>
+{{ render_file(path, item) | trim }}
+</code></pre>
     </details>
   {%- endif %}
 {%- endfor %}
-
+</div>
 """
 
 
@@ -143,7 +147,9 @@ class Project:
         env = Environment(loader=self.templates)
         template = env.get_template("awdur:project_tree")
         return template.render(
-            project=self, render_file=functools.partial(render_file, env)
+            # TODO: have render_file also apply syntax highlighting.
+            project=self,
+            render_file=functools.partial(render_file, env),
         )
 
     def export(self, output: pathlib.Path):

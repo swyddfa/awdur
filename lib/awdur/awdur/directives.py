@@ -97,7 +97,7 @@ def define_template(base: type[Directive]) -> type[Directive]:
     )
 
 
-class ProjectBrowser(Directive):
+class ProjectTreeDirective(Directive):
     """A directive that inserts a project file browser into the page."""
 
     required_arguments = 0
