@@ -8,8 +8,10 @@ from sphinx.directives.code import CodeBlock
 from awdur import __version__
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
+from awdur.directives import project_tree
 from awdur.project import Project
 from awdur.transforms import BuildProjectsTransform
+from awdur.transforms import ProjectBrowserTransform
 from awdur.transforms import ResolveProjectMetadataTransform
 
 from .builder import AwdurBuilder
@@ -48,7 +50,13 @@ def inject_css(app: Sphinx):
     app.add_css_file(style_name)
 
 
+def no_op(self, node): ...
+
+
 def setup(app: Sphinx):
+    # Register custom nodes
+    app.add_node(project_tree, html=(no_op, no_op))
+
     # Register custom directives
     codeblock = define_codeblock(CodeBlock)
 
@@ -68,5 +76,6 @@ def setup(app: Sphinx):
     # Register custom transforms
     app.add_transform(ResolveProjectMetadataTransform)
     app.add_transform(BuildProjectsTransform)
+    app.add_transform(ProjectBrowserTransform)
 
     return {"version": __version__, "parallel_read_safe": True}

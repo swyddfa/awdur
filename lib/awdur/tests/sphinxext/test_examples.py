@@ -24,7 +24,7 @@ def test_hello_world_render(workspace: pathlib.Path):
     cmd = [
         sys.executable, "-m", "sphinx",
         ".", "out",
-        "-C",
+        "-C", "-W",
         "-b", "singlehtml",
         "-D", "root_doc=hello-world",
         "-D", "extensions=awdur.sphinxext",
@@ -51,7 +51,7 @@ def test_hello_world_extract(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "awdur",
-        "-C",
+        "-C",  "-W",
         "-D", "root_doc=hello-world",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -77,7 +77,7 @@ def test_multiple_blocks_render(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "singlehtml",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=multiple-blocks",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -103,7 +103,7 @@ def test_multiple_blocks_extract(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "awdur",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=multiple-blocks",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -138,7 +138,7 @@ def test_multiple_files_render(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "singlehtml",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=multiple-files",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -164,7 +164,7 @@ def test_multiple_files_extract(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "awdur",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=multiple-files",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -208,7 +208,7 @@ def test_inline_templates_render(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "singlehtml",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=inline-templates",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -234,7 +234,7 @@ def test_inline_templates_extract(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "awdur",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=inline-templates",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -284,7 +284,7 @@ def test_project_tree_render(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "singlehtml",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=project-tree",
         "-D", "extensions=awdur.sphinxext",
     ]
@@ -310,7 +310,7 @@ def test_project_tree_extract(workspace: pathlib.Path):
         sys.executable, "-m", "sphinx",
         ".", "out",
         "-b", "awdur",
-        "-C",
+        "-C", "-W",
         "-D", "root_doc=project-tree",
         "-D", "extensions=awdur.sphinxext",
     ]

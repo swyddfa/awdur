@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pathlib
 import subprocess
 import sys
 import typing
@@ -10,6 +9,8 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.domains import Domain
 from sphinx.util.docutils import SphinxDirective
+
+from awdur.directives import ProjectTreeDirective
 
 if typing.TYPE_CHECKING:
     from typing import Any
@@ -83,6 +84,7 @@ class AwdurDomain(Domain):
 
     directives = {
         "render": RenderDirective,
+        "project-tree": ProjectTreeDirective,
         # The following directives are populated dynamically during extension setup.
         #
         # 'template'
