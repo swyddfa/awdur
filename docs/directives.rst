@@ -24,6 +24,32 @@ This page documents the custom directives provided by ``awdur``.
       Specify the template used to render the final file.
       Only needs to be used on one code block within a file.
 
+   .. rst:option:: project
+
+      Specify the name of the project to associate the code block with.
+      If not given the default name ``default`` will be used.
+
+.. rst:directive:: awdur:template
+
+   Define a custom template to use with a project.
+   See :doc:`/examples/inline-templates` for example usage.
+
+   .. rst:option:: project
+
+      Specify the name of the project to associate the template with.
+      If not given the default name ``default`` will be used.
+
+.. rst:directive:: awdur:project-tree
+
+   .. note::
+
+      This directive only has an effect with html outputs.
+
+   Insert an interactive file explorer for code files produced by the given project.
+   If no name is given, the default name ``default`` will be used.
+
+   See :doc:`/examples/project-tree` and :doc:`/examples/multiple-projects` for example usage.
+
 
 Sphinx Only
 -----------
@@ -34,3 +60,12 @@ The following directives are only available when using the Sphinx extension (``a
                    sourcecode
 
    See :rst:dir:`code`.
+
+
+.. rst:directive:: awdur:render
+
+   .. note::
+
+      This directive only has an effect with html outputs.
+
+   Run the given ``<filename>`` through the ``awdur render`` cli command and embed the result into the page using an ``iframe``
