@@ -31,7 +31,7 @@ HTML_TEMPLATE = """\
   {%- elif item_type == "file" %}
     <details class="awdur-file"><summary>{{ path.name }}</summary>
       <pre class="code literal-block"><code>
-{{ render_file(path, item) | trim }}
+{{ render_file(path, item) | trim|e }}
 </code></pre>
     </details>
   {%- endif %}
