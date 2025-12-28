@@ -3,16 +3,14 @@ from __future__ import annotations
 import pathlib
 import typing
 
-from docutils import io
 from sphinx.builders import Builder
-from sphinx.util.display import status_iterator
-
-from awdur.writers import SourceCodeWriter
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
 
     from docutils import nodes
+
+    from awdur.project import ProjectManager
 
 
 class AwdurBuilder(Builder):
@@ -52,5 +50,7 @@ class AwdurBuilder(Builder):
     def finish(self):
         """Actually write all the code to disk"""
 
-        project = self.env.settings["awdur_project"]
-        project.export(self.outpath)
+        manager: ProjectManager = self.env.settings["awdur_project_manager"]
+
+        for name, project in manager.projects.items():
+            project.export(self.outpath / name)

@@ -7,11 +7,16 @@ from docutils.core import Publisher
 from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
 
-from awdur.project import Project
+from awdur.project import ProjectManager
 from awdur.writers import SourceCodeWriter
 
 
-def extract(source: pathlib.Path, *, output: pathlib.Path | None = None):
+def extract(
+    source: pathlib.Path,
+    *,
+    output: pathlib.Path | None = None,
+    project_name: str = "default",
+):
     """Extract source code from documentation sources.
 
     Parameters
@@ -21,6 +26,9 @@ def extract(source: pathlib.Path, *, output: pathlib.Path | None = None):
 
     output
        The location to write to
+
+    project_name
+       The project name to extract
     """
     reader_cls = get_reader_class("standalone")
     parser_cls = get_parser_class("restructuredtext")
@@ -34,10 +42,10 @@ def extract(source: pathlib.Path, *, output: pathlib.Path | None = None):
         source_class=io.FileInput,
     )
 
-    project = Project(default_name=source.stem)
+    manager = ProjectManager(default_name=source.stem)
     publisher.process_programmatic_settings(
         settings_spec=None,
-        settings_overrides={"awdur_project": project},
+        settings_overrides={"awdur_project_manager": manager},
         config_section=None,
     )
 
@@ -48,9 +56,18 @@ def extract(source: pathlib.Path, *, output: pathlib.Path | None = None):
     if document.reporter.max_level >= 3:
         return 1
 
+    if project_name not in manager:
+        raise ValueError(f"Project {project_name!r} is not defined")
+
     if output is None:
-        output = source.with_suffix("")
+        # Use the project name if it's not the default one
+        if project_name != "default":
+            output = source.with_name(project_name)
+        else:
+            output = source.with_suffix("")
+
         if output == source:
             raise ValueError("Please provide a destination")
 
+    project = manager[project_name]
     project.export(output)

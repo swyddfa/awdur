@@ -8,17 +8,20 @@ from docutils.core import Publisher
 from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
 
-from awdur.project import Project
+from awdur.project import ProjectManager
 from awdur.writers import HTMLWriter
 
 
-def render(source: pathlib.Path, output: pathlib.Path | None):
+def render(source: pathlib.Path, *, output: pathlib.Path | None = None):
     """Render sources to produce a documentation artifact.
 
     Parameters
     ----------
     source
        The source file to build.
+
+    output
+       The output to write to
     """
     reader_cls = get_reader_class("standalone")
     parser_cls = get_parser_class("restructuredtext")
@@ -35,10 +38,10 @@ def render(source: pathlib.Path, output: pathlib.Path | None):
 
     # It looks like the easiest way to inject additional stylesheets, rather than replace the defaults
     # is to first let docutils initialize the default settings, then append the extra file(s) to the list
-    project = Project(default_name=source.stem)
+    project = ProjectManager(default_name=source.stem)
     publisher.process_programmatic_settings(
         settings_spec=None,
-        settings_overrides={"awdur_project": project},
+        settings_overrides={"awdur_project_manager": project},
         config_section=None,
     )
 

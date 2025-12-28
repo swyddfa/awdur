@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import typing
+
 from docutils import nodes
 from docutils.transforms import Transform
 
 from awdur.directives import project_tree
 from awdur.project import Project
+
+if typing.TYPE_CHECKING:
+    from awdur.project import ProjectManager
 
 
 class CodeMetdataVisitor(nodes.SparseNodeVisitor):
@@ -60,9 +65,16 @@ class BuildProjectsTransform(Transform):
     default_priority = ResolveProjectMetadataTransform.default_priority + 1
 
     def apply(self):
-        project: Project = self.document.settings.awdur_project
+        manager: ProjectManager = self.document.settings.awdur_project_manager
 
         for node in self.document.findall(nodes.literal_block):
+            # All awdur code blocks should set a project name
+            if "project" not in node.attributes:
+                continue
+
+            project_name = node.attributes["project"]
+            project: Project = manager[project_name]
+
             filename = node.attributes.get("filename", "<<default>>")
             code = node.astext()
 
@@ -81,11 +93,15 @@ class ProjectBrowserTransform(Transform):
     default_priority = BuildProjectsTransform.default_priority + 1
 
     def apply(self):
-        project: Project = self.document.settings.awdur_project
-        content = project.render_html()
-        tree = nodes.raw("", content, format="html")
+        manager: ProjectManager = self.document.settings.awdur_project_manager
 
         for node in self.document.findall(condition=project_tree):
+            project_name = node["name"]
+            project: Project = manager[project_name]
+
+            content = project.render_html()
+            tree = nodes.raw("", content, format="html")
+
             parent = node.parent
             idx = parent.children.index(node)
             parent.children.remove(node)
