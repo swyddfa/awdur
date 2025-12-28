@@ -28,7 +28,7 @@ HTML_TEMPLATE = """\
       <div class="awdur-directory-contents">
   {%- elif item_type == "exit_dir" %}
     </div></details>
-  {%- elif item_type == "file" %}
+  {%- elif item_type == "file" and path.name != "<<default>>" %}
     <details class="awdur-file"><summary>{{ path.name }}</summary>
       <pre class="code literal-block"><code>
 {{ render_file(path, item) | trim|e }}
