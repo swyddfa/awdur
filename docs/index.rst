@@ -16,6 +16,7 @@ But if you are interested, below are some examples of what is currently possible
    examples/multiple-blocks
    examples/multiple-files
    examples/inline-templates
+   examples/project-tree
 
 For a more "real world" example of this project in action you can check out my `blog <https://www.alcarney.me>`__
 
