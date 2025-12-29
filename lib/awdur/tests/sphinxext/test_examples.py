@@ -364,3 +364,109 @@ def test_project_tree_extract(workspace: pathlib.Path):
         "- Area, A=6.0"
     )
     # fmt: on
+
+
+@pytest.mark.parametrize("workspace", ["multiple-projects"], indirect=True)
+@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
+def test_multiple_projects_render(workspace: pathlib.Path):
+    """Ensure that we can render docs from our multiple projects example."""
+
+    # fmt: off
+    cmd = [
+        sys.executable, "-m", "sphinx",
+        ".", "out",
+        "-b", "singlehtml",
+        "-C", "-W",
+        "-D", "root_doc=multiple-projects",
+        "-D", "extensions=awdur.sphinxext",
+    ]
+    # fmt: on
+
+    result = subprocess.run(cmd, cwd=workspace)
+    assert result.returncode == 0
+
+    output = workspace / "out/multiple-projects.html"
+    assert output.exists()
+
+    content = output.read_text(encoding="utf-8")
+    assert "<!DOCTYPE html>" in content
+
+
+@pytest.mark.parametrize("workspace", ["multiple-projects"], indirect=True)
+@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
+def test_multiple_projects_extract(workspace: pathlib.Path):
+    """Ensure that we can extract code from our multiple projects example."""
+
+    # fmt: off
+    cmd = [
+        sys.executable, "-m", "sphinx",
+        ".", "out",
+        "-b", "awdur",
+        "-C", "-W",
+        "-D", "root_doc=multiple-projects",
+        "-D", "extensions=awdur.sphinxext",
+    ]
+    # fmt: on
+
+    result = subprocess.run(cmd, cwd=workspace)
+    assert result.returncode == 0
+
+    # check hello.py
+    output = workspace / "out/hello.py"
+    assert output.exists()
+
+    assert 'print("Hello, World!")\n' == output.read_text()
+
+    # check math/fib.py
+    output = workspace / "out/math/fib.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55"
+    )
+
+    # check math/square.py
+    output = workspace / "out/math/square.py"
+    assert output.exists()
+
+    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
+    assert result.returncode == 0
+
+    stdout = result.stdout.decode("utf-8")
+    assert stdout.strip() == (
+        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
+    )
+
+    # check shapes/triangle.el
+    output = workspace / "out/shapes/triangle.el"
+    assert output.exists()
+    assert output.read_text() == (
+        ";;; triangle.el --- Description\n"
+        "\n"
+        "(defun triangle-area (a b c)\n"
+        "  (* 0.5 a b))\n"
+        "\n"
+        "(defun triangle-perimeter (a b c)\n"
+        "  (+ a b c))\n"
+        "\n"
+        "(provide 'triangle)\n"
+    )
+
+    # check shapes/rectangle.el
+    output = workspace / "out/shapes/rectangle.el"
+    assert output.exists()
+    assert output.read_text() == (
+        ";;; rectangle.el --- Description\n"
+        "\n"
+        "(defun rectangle-area (w h)\n"
+        "  (* w h))\n"
+        "\n"
+        "(defun rectangle-perimeter (w h)\n"
+        "  (* 2 (+ w h))\n"
+        "\n"
+        "(provide 'rectangle)\n"
+    )
