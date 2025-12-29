@@ -93,7 +93,15 @@ class ProjectBrowserTransform(Transform):
     default_priority = BuildProjectsTransform.default_priority + 1
 
     def apply(self):
-        manager: ProjectManager = self.document.settings.awdur_project_manager
+        try:
+            manager: ProjectManager = self.document.settings.awdur_project_manager
+        except AttributeError:
+            # When registered as a post transform in Sphinx, there's no guarantee that
+            # every document will have the `awdur_project_manager` set.
+            #
+            # In that scenario it makes sense to bail, however we will have to see how
+            # masty it makes debugging issues in the future.
+            return
 
         for node in self.document.findall(condition=project_tree):
             project_name = node["name"]

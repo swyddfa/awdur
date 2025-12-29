@@ -52,8 +52,7 @@ def inject_css(app: Sphinx):
     app.add_css_file(style_name)
 
 
-def no_op(self, node):
-    ...
+def no_op(self, node): ...
 
 
 def setup(app: Sphinx):
@@ -79,6 +78,6 @@ def setup(app: Sphinx):
     # Register custom transforms
     app.add_transform(ResolveProjectMetadataTransform)
     app.add_transform(BuildProjectsTransform)
-    app.add_transform(ProjectBrowserTransform)
+    app.add_post_transform(ProjectBrowserTransform)
 
     return {"version": __version__, "parallel_read_safe": True}
