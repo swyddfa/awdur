@@ -23,6 +23,8 @@ if typing.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
 
+    from awdur.project import Project
+
 
 def env_get_outdated(
     app: Sphinx,
@@ -52,6 +54,26 @@ def inject_css(app: Sphinx):
     app.add_css_file(style_name)
 
 
+def inject_generated_files(app: Sphinx, exc: Exception | None):
+    """Allows users to inject additional files into the build by defining a project called
+    ``sphinx:<builder_name>``."""
+    if exc is not None:
+        # abort as an error occurred during the build
+        return
+
+    builder = app.builder
+
+    # Look for a project that corresponds to the builder name.
+    project_name = f"sphinx:{builder.name}"
+    manager: ProjectManager = app.env.settings["awdur_project_manager"]
+
+    if project_name not in manager:
+        return
+
+    project: Project = manager[project_name]
+    project.export(output=builder.outdir)
+
+
 def no_op(self, node): ...
 
 
@@ -74,6 +96,7 @@ def setup(app: Sphinx):
     # Register custom event handlers
     _ = app.connect("builder-inited", inject_css)
     _ = app.connect("env-get-outdated", env_get_outdated)
+    _ = app.connect("build-finished", inject_generated_files)
 
     # Register custom transforms
     app.add_transform(ResolveProjectMetadataTransform)
