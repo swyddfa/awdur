@@ -210,6 +210,10 @@ class Project:
             output = output.with_name(filename.name)
 
         content = render_file(env, filename=output, file=file)
+
+        if not output.parent.exists():
+            output.parent.mkdir(parents=True)
+
         _ = output.write_text(content)
 
 
