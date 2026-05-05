@@ -3,7 +3,7 @@ Multiple Projects
 
 **Source Document**
 
-.. literalinclude:: ../../examples/multiple-projects/multiple-projects.rst
+.. literalinclude:: ../../../examples/multiple-projects/multiple-projects.rst
    :language: restructuredtext
 
 **Rendered Document**

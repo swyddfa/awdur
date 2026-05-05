@@ -4,7 +4,7 @@ Inline Templates
 
 **Source Document**
 
-.. literalinclude:: ../../examples/inline-templates/inline-templates.rst
+.. literalinclude:: ../../../examples/inline-templates/inline-templates.rst
    :language: restructuredtext
 
 **Rendered Document**

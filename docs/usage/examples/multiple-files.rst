@@ -3,7 +3,7 @@ Multiple Files
 
 **Source Document**
 
-.. literalinclude:: ../../examples/multiple-files/multiple-files.rst
+.. literalinclude:: ../../../examples/multiple-files/multiple-files.rst
    :language: restructuredtext
 
 **Rendered Document**
