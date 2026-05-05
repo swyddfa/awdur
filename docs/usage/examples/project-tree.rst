@@ -3,7 +3,7 @@ Project Tree
 
 **Source Document**
 
-.. literalinclude:: ../../examples/project-tree/project-tree.rst
+.. literalinclude:: ../../../examples/project-tree/project-tree.rst
    :language: restructuredtext
 
 **Rendered Document**

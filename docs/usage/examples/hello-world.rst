@@ -3,7 +3,7 @@ Hello World
 
 **Source Document**
 
-.. literalinclude:: ../../examples/hello-world/hello-world.rst
+.. literalinclude:: ../../../examples/hello-world/hello-world.rst
    :language: restructuredtext
 
 **Rendered Document**

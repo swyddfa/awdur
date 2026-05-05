@@ -3,7 +3,7 @@ Multiple Blocks
 
 **Source Document**
 
-.. literalinclude:: ../../examples/multiple-blocks/multiple-blocks.rst
+.. literalinclude:: ../../../examples/multiple-blocks/multiple-blocks.rst
    :language: restructuredtext
 
 **Rendered Document**
