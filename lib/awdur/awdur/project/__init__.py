@@ -7,6 +7,12 @@ import typing
 from jinja2 import BaseLoader
 from jinja2 import Environment
 from jinja2 import TemplateNotFound
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_by_name
+from pygments.lexers import get_lexer_for_filename
+from pygments.lexers import guess_lexer
+from pygments.util import ClassNotFound
 
 if typing.TYPE_CHECKING:
     from collections.abc import Generator
@@ -30,9 +36,9 @@ HTML_TEMPLATE = """\
     </div></details>
   {%- elif item_type == "file" and path.name != "<<default>>" %}
     <details class="awdur-file"><summary>{{ path.name }}</summary>
-      <pre class="code literal-block"><code>
-{{ render_file(path, item) | trim|e }}
-</code></pre>
+      <div class="highlight">
+        <pre class="code literal-block">{%- set src = render_file(path, item) | trim -%}{{ highlight_code(src, path) }}</pre>
+      </div>
     </details>
   {%- endif %}
 {%- endfor %}
@@ -164,9 +170,9 @@ class Project:
         env = Environment(loader=self.templates)
         template = env.get_template("awdur:project_tree")
         return template.render(
-            # TODO: have render_file also apply syntax highlighting.
             project=self,
             render_file=functools.partial(render_file, env),
+            highlight_code=highlight_code,
         )
 
     def export(self, output: pathlib.Path):
@@ -223,6 +229,20 @@ def render_file(env: Environment, filename: pathlib.Path, file: ProjectFile) -> 
         "path": filename,
         **file.slots,
     }
-
     template = env.get_template(file.template)
     return template.render(**context)
+
+
+def highlight_code(code: str, filename: pathlib.Path) -> str:
+    """Highlight the given code, according to the given filename."""
+
+    try:
+        lexer = get_lexer_for_filename(filename)
+    except ClassNotFound:
+        try:
+            lexer = guess_lexer(code)
+        except ClassNotFound:
+            lexer = get_lexer_by_name("text")
+
+    formatter = HtmlFormatter[str](nowrap=True)
+    return highlight(code, lexer, formatter)
