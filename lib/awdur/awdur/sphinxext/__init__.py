@@ -3,9 +3,12 @@ from __future__ import annotations
 import importlib.resources
 import typing
 
+from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.directives.code import CodeBlock
+from sphinx.jinja2glue import SphinxFileSystemLoader
 
 from awdur import __version__
+from awdur.directives import code_block
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 from awdur.directives import project_tree
@@ -41,11 +44,15 @@ def env_get_outdated(
     return set()
 
 
-def inject_css(app: Sphinx):
-    """Add our  CSS to the build."""
+def inject_resources(app: Sphinx):
+    """Add our CSS and HTML templates to the build."""
 
-    if "html" not in app.builder.name:
+    if not isinstance(app.builder, StandaloneHTMLBuilder):
         return
+
+    app.builder.templates.loaders.append(
+        SphinxFileSystemLoader(importlib.resources.files("awdur").joinpath("templates"))
+    )
 
     resources = importlib.resources.files("awdur.sphinxext").joinpath("_static")
     app.config.html_static_path.append(str(resources))
@@ -77,9 +84,22 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
 def no_op(self, node): ...
 
 
+def visit_code_block(self, node: code_block):
+    header = self.builder.templates.render(
+        "awdur/codeblock-header.html", {**node.attributes}
+    )
+    self.body.append('<div class="awdur-codeblock">')
+    self.body.append(header)
+
+
+def depart_code_block(self, node):
+    self.body.append("</div>")
+
+
 def setup(app: Sphinx):
     # Register custom nodes
     app.add_node(project_tree, html=(no_op, no_op))
+    app.add_node(code_block, html=(visit_code_block, depart_code_block))
 
     # Register custom directives
     codeblock = define_codeblock(CodeBlock)
@@ -94,7 +114,7 @@ def setup(app: Sphinx):
     app.add_builder(AwdurBuilder)
 
     # Register custom event handlers
-    _ = app.connect("builder-inited", inject_css)
+    _ = app.connect("builder-inited", inject_resources)
     _ = app.connect("env-get-outdated", env_get_outdated)
     _ = app.connect("build-finished", inject_generated_files)
 

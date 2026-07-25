@@ -5,6 +5,7 @@ import typing
 from docutils import nodes
 from docutils.transforms import Transform
 
+from awdur.directives import code_block
 from awdur.directives import project_tree
 from awdur.project import Project
 
@@ -37,10 +38,7 @@ class CodeMetdataVisitor(nodes.SparseNodeVisitor):
 
         #     self.context[name] = value
 
-    def visit_literal_block(self, node: nodes.literal_block):
-        """If there is a current context, use it to fill in any missing blanks in the
-        code block."""
-
+    def visit_code_block(self, node: code_block):
         for name, value in self.context.items():
             if name not in node.attributes:
                 node.attributes[name] = value
@@ -67,7 +65,7 @@ class BuildProjectsTransform(Transform):
     def apply(self):
         manager: ProjectManager = self.document.settings.awdur_project_manager
 
-        for node in self.document.findall(nodes.literal_block):
+        for node in self.document.findall(code_block):
             # All awdur code blocks should set a project name
             if "project" not in node.attributes:
                 continue

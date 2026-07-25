@@ -5,6 +5,14 @@ from docutils.parsers.rst import Directive
 from docutils.parsers.rst import directives
 
 
+class project_tree(nodes.General, nodes.Element):
+    """A marker node used to inject a browsable view of the project into a document."""
+
+
+class code_block(nodes.General, nodes.Element):
+    """A container for an awdur code block."""
+
+
 def define_codeblock(base: type[Directive]) -> type[Directive]:
     """Define the codeblock directive.
 
@@ -14,29 +22,18 @@ def define_codeblock(base: type[Directive]) -> type[Directive]:
     def run(self):
         result = base.run(self)
 
-        if not isinstance(code := result[0], nodes.literal_block):
-            print(f"Unable to process {code}")
-            return result
-
-        code.attributes["kind"] = "code"
-        code.attributes["project"] = self.options.get("project", "default")
-        code.attributes["template"] = self.options.get("template")
+        block = code_block(
+            "",
+            *result,
+            kind="code",
+            template=self.options.get("template"),
+            project=self.options.get("project", "default"),
+        )
 
         if (filename := self.options.get("filename")) is not None:
-            code.attributes["filename"] = filename
+            block.attributes["filename"] = filename
 
-            # Add a header to the code block indicating where it is being saved to.
-            header = nodes.container(
-                "",
-                nodes.literal("", filename, classes=["awdur-codeblock-filename"]),
-                classes=["awdur-codeblock-header"],
-            )
-            result.insert(0, header)
-
-            container = nodes.container("", *result, classes=["awdur-codeblock"])
-            return [container]
-
-        return result
+        return [block]
 
     return type(
         "AwdurCodeblock",
@@ -68,22 +65,15 @@ def define_template(base: type[Directive]) -> type[Directive]:
             print(f"Unable to process {code}")
             return result
 
-        code.attributes["kind"] = "template"
-        code.attributes["name"] = template_name
-        code.attributes["project"] = self.options.get("project", "default")
-
-        # Add a header to the code block indicating where it is being saved to.
-        header = nodes.container(
+        block = code_block(
             "",
-            nodes.literal("", template_name, classes=["awdur-template-name"]),
-            classes=["awdur-template-header"],
+            *result,
+            kind="template",
+            name=template_name,
+            project=self.options.get("project", "default"),
         )
-        result.insert(0, header)
 
-        container = nodes.container("", *result, classes=["awdur-template"])
-        return [container]
-
-        return result
+        return [block]
 
     return type(
         "AwdurTemplate",
