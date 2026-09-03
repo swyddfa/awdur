@@ -287,3 +287,46 @@ def test_extract_project_tree(workspace: pathlib.Path):
         "- Area, A=6.0"
     )
     # fmt: on
+
+
+@pytest.mark.parametrize("workspace", ["named-slots"], indirect=True)
+def test_extract_named_slots(workspace: pathlib.Path):
+    """Ensure we can extract code from the example correctly."""
+
+    result = subprocess.run(
+        [sys.executable, "-m", "awdur", "extract", "named-slots.rst", "-p", "example"],
+        cwd=workspace,
+    )
+    assert result.returncode == 0
+
+    # check example/evaluator.py
+    output = workspace / "example/evaluator.py"
+    assert output.exists()
+
+    assert "class Evaluator: ...\n" == output.read_text()
+
+    # check example/main.py
+    output = workspace / "example/main.py"
+    assert output.exists()
+
+    assert "from reader import Reader\n" == output.read_text()
+
+    # check example/reader.py
+    output = workspace / "example/reader.py"
+    assert output.exists()
+
+    lines = [
+        "class Reader:",
+        "    def __init__(self):",
+        "        self.tokens = []",
+        "        self.pos = 0",
+        "",
+        "    def next(self):",
+        "        tok = self.tokens[self.pos]",
+        "        self.pos += 1",
+        "        return tok",
+        "",
+        "    def peek(self):",
+        "        return self.tokens[self.pos]",
+    ]
+    assert "\n".join(lines) + "\n" == output.read_text()

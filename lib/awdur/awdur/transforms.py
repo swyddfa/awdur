@@ -24,23 +24,23 @@ class CodeMetdataVisitor(nodes.SparseNodeVisitor):
     def visit_docinfo(self, node: nodes.docinfo):
         """Set the context based on docinfo fields."""
 
-        # for field in node:
-        #     name = field[0].astext()
-        #     value = field[1].astext()
+        for field in node:
+            name = field[0].astext()
+            value = field[1].astext()
 
-        #     self.context[name] = value
+            self.context[name] = value
 
     def visit_field_list(self, node: nodes.field_list):
         """Set the context based on the current field list."""
-        # for field in node:
-        #     name = field[0].astext()
-        #     value = field[1].astext()
+        for field in node:
+            name = field[0].astext()
+            value = field[1].astext()
 
-        #     self.context[name] = value
+            self.context[name] = value
 
     def visit_code_block(self, node: code_block):
         for name, value in self.context.items():
-            if name not in node.attributes:
+            if name not in node.attributes and name in code_block.user_attributes:
                 node.attributes[name] = value
 
     def visit_project_tree(self, node: project_tree) -> None:
@@ -66,11 +66,7 @@ class BuildProjectsTransform(Transform):
         manager: ProjectManager = self.document.settings.awdur_project_manager
 
         for node in self.document.findall(code_block):
-            # All awdur code blocks should set a project name
-            if "project" not in node.attributes:
-                continue
-
-            project_name = node.attributes["project"]
+            project_name = node.attributes.get("project", "default")
             project: Project = manager[project_name]
 
             filename = node.attributes.get("filename", "<<default>>")
@@ -78,7 +74,8 @@ class BuildProjectsTransform(Transform):
 
             if (kind := node.attributes.get("kind")) == "code":
                 template = node.attributes.get("template", None)
-                project.add_fragment(code, filename, template=template)
+                slot = node.attributes.get("slot", "content")
+                project.add_fragment(code, filename, template=template, slot=slot)
 
             elif kind == "template":
                 name = node.attributes["name"]

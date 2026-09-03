@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import functools
 import pathlib
+import textwrap
 import typing
 
 from jinja2 import BaseLoader
 from jinja2 import Environment
+from jinja2 import Template
 from jinja2 import TemplateNotFound
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
@@ -21,7 +23,7 @@ if typing.TYPE_CHECKING:
 
 DEFAULT_TEMPLATE = """\
 {%- block header %}{%- endblock %}
-{%- block content %}{{ "\n\n".join(content) }}{%- endblock %}
+{%- block content %}{{ insert(slots.content) }}{%- endblock %}
 {%- block footer %}{%- endblock %}
 
 """
@@ -146,7 +148,13 @@ class Project:
 
             yield filename, item
 
-    def add_fragment(self, code: str, filename: str, template: str | None = None):
+    def add_fragment(
+        self,
+        code: str,
+        filename: str,
+        template: str | None = None,
+        slot: str = "content",
+    ):
         """Add a code fragment to the project."""
 
         dir_ = self.files
@@ -156,7 +164,7 @@ class Project:
             dir_ = dir_.setdefault(parent, {})
 
         file = dir_.setdefault(name, ProjectFile())
-        file.add_fragment("content", code)
+        file.add_fragment(slot, code)
 
         if template is not None:
             file.template = template
@@ -226,11 +234,30 @@ class Project:
 def render_file(env: Environment, filename: pathlib.Path, file: ProjectFile) -> str:
     """Render a file to plain text"""
     context = {
-        "path": filename,
-        **file.slots,
+        "output": {"path": filename},
+        "slots": file.slots,
     }
+
+    def insert(lines: list[str], indent: int | str | None = None) -> str:
+        """Insert code into the file."""
+        code = "\n\n".join(lines)
+
+        # Treat the code as a template so we can expand nested substiutions
+        # - is this a horrible idea??
+        t = Template(code)
+        code = t.render(**context, insert=insert)
+
+        # Handle indentation
+        if isinstance(indent, int):
+            indent = indent * " "
+
+        if indent:
+            code = textwrap.indent(code, indent)
+
+        return code
+
     template = env.get_template(file.template)
-    return template.render(**context)
+    return template.render(**context, insert=insert)
 
 
 def highlight_code(code: str, filename: pathlib.Path) -> str:

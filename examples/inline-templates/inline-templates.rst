@@ -26,13 +26,13 @@ A template can be defined using the ``.. awdur:template::`` directive.
 
    {% extends "default" %}
 
-   {% block header %};;; {{ path.name }} --- Description
+   {% block header %};;; {{ output.path.name }} --- Description
 
    {% endblock %}
 
    {% block footer %}
 
-   (provide '{{ path.stem }}){% endblock %}
+   (provide '{{ output.path.stem }}){% endblock %}
 
 
 Using Templates
