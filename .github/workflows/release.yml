@@ -37,7 +37,7 @@ jobs:
     - run: |
         set -e
 
-        ./scripts/make_release.py lib
+        ./scripts/make_release.py awdur
       name: Set Version
       id: info
 
