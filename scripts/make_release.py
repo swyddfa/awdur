@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Book keeping around making a release.
 
 This script will
@@ -10,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import os
 import pathlib
 import re
@@ -19,14 +21,15 @@ from datetime import datetime
 from typing import TypedDict
 
 IS_CI = "CI" in os.environ
-
-
 IS_PR = os.environ.get("GITHUB_REF", "").startswith("refs/pull/")
 IS_DEVELOP = os.environ.get("GITHUB_REF", "") == "refs/heads/develop"
 IS_RELEASE = os.environ.get("GITHUB_REF", "") == "refs/heads/release"
-ENV = os.environ.get("GITHUB_ENV", "")
 
+ENV = os.environ.get("GITHUB_ENV", "")
+GH_OUT = os.environ.get("GITHUB_OUTPUT", "")
 STEP_SUMMARY = os.environ.get("GITHUB_STEP_SUMMARY", "")
+
+REPO = pathlib.Path(__file__).parent.parent.resolve()
 
 
 class Output:
@@ -79,7 +82,7 @@ class Component(TypedDict):
     """The prefix to give to version bump commit messages for this component."""
 
     src: str
-    """The directory containing the component, relative to repo root."""
+    """The directory containing the component."""
 
     tag_prefix: str
     """The prefix to give to tagged versions of this component."""
@@ -115,6 +118,9 @@ def main(component_name: str):
         f"RELEASE_DATE={date:%Y-%m-%d}" >> env
         f"RELEASE_TAG={tag}" >> env
 
+    with Output(GH_OUT) as out:
+        f"version={version}" >> out
+
 
 def set_version(component: Component) -> str:
     """Set the next version of the given component."""
@@ -127,6 +133,10 @@ def set_version(component: Component) -> str:
 
     elif len(list(changes.glob("*.feature.*"))) > 0:
         print("New features found, doing minor release!")
+        kind = component["bump_minor"]
+
+    elif len(list(changes.glob("*.enhancement.*"))) > 0:
+        print("Enhancements found, doing minor release!")
         kind = component["bump_minor"]
 
     else:
