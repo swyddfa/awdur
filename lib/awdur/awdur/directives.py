@@ -12,6 +12,20 @@ class project_tree(nodes.General, nodes.Element):
 class code_block(nodes.General, nodes.Element):
     """A container for an awdur code block."""
 
+    user_attributes = (
+        "template",
+        "project",
+        "filename",
+        "slot",
+    )
+
+    valid_attributes = (
+        # valid_attributes not present on all docutils versions
+        getattr(nodes.Element, "valid_attributes", tuple())
+        + user_attributes
+        + ("kind",)
+    )
+
 
 def define_codeblock(base: type[Directive]) -> type[Directive]:
     """Define the codeblock directive.
@@ -26,12 +40,11 @@ def define_codeblock(base: type[Directive]) -> type[Directive]:
             "",
             *result,
             kind="code",
-            template=self.options.get("template"),
-            project=self.options.get("project", "default"),
         )
 
-        if (filename := self.options.get("filename")) is not None:
-            block.attributes["filename"] = filename
+        for attr in code_block.user_attributes:
+            if (attr_value := self.options.get(attr)) is not None:
+                block.attributes[attr] = attr_value
 
         return [block]
 
@@ -41,9 +54,7 @@ def define_codeblock(base: type[Directive]) -> type[Directive]:
         {
             "option_spec": {
                 **base.option_spec,
-                "filename": directives.uri,
-                "project": directives.unchanged,
-                "template": directives.unchanged,
+                **{a: directives.unchanged for a in code_block.user_attributes},
             },
             "run": run,
         },

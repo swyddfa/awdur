@@ -38,13 +38,13 @@ The following template is used when defining an elisp module in this project.
 
    {% extends "default" %}
 
-   {% block header %};;; {{ path.name }} --- Description
+   {% block header %};;; {{ output.path.name }} --- Description
 
    {% endblock %}
 
    {% block footer %}
 
-   (provide '{{ path.stem }}){% endblock %}
+   (provide '{{ output.path.stem }}){% endblock %}
 
 Triangles
 ^^^^^^^^^
