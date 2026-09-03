@@ -1,0 +1,14 @@
+{% extends "page.html" %}
+
+{% block body %}
+<div class="awdur-container">
+  <div class="awdur-codeblock-header">
+    {% include "awdur/filepath.html" %}
+  </div>
+
+  <div class="awdur-codeblock">
+    {{ contents }}
+  </div>
+</div>
+
+{% endblock %}

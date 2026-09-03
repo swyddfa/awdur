@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Book keeping around making a release.
 
 This script will
@@ -6,6 +5,9 @@ This script will
 - Commit, tag and push the new version (if it's a release)
 - Export the tag name and release date for use later on in the pipeline.
 """
+
+from __future__ import annotations
+
 import argparse
 import io
 import os
@@ -14,16 +16,16 @@ import re
 import subprocess
 import sys
 from datetime import datetime
-from typing import Dict
-from typing import Optional
 from typing import TypedDict
 
 IS_CI = "CI" in os.environ
+
+
 IS_PR = os.environ.get("GITHUB_REF", "").startswith("refs/pull/")
 IS_DEVELOP = os.environ.get("GITHUB_REF", "") == "refs/heads/develop"
 IS_RELEASE = os.environ.get("GITHUB_REF", "") == "refs/heads/release"
-
 ENV = os.environ.get("GITHUB_ENV", "")
+
 STEP_SUMMARY = os.environ.get("GITHUB_STEP_SUMMARY", "")
 
 
@@ -83,11 +85,11 @@ class Component(TypedDict):
     """The prefix to give to tagged versions of this component."""
 
 
-COMPONENTS: Dict[str, Component] = {
+COMPONENTS: dict[str, Component] = {
     c["name"]: c
     for c in [
         Component(
-            name="lib",
+            name="awdur",
             bump_breaking="major",
             bump_minor="minor",
             bump_patch="patch",
@@ -131,7 +133,7 @@ def set_version(component: Component) -> str:
         print("Doing patch release!")
         kind = component["bump_patch"]
 
-    run("hatch", "version", kind, cwd=component["src"])
+    _ = run("hatch", "version", kind, cwd=component["src"])
     version = run("hatch", "version", cwd=component["src"], capture=True)
     if version is None or len(version) == 0:
         print("Unable to get version number!")
@@ -149,7 +151,7 @@ def set_version(component: Component) -> str:
         sys.exit(1)
 
     dev_version = f"{version}.dev{match.group(1)}"
-    run("hatch", "version", dev_version, cwd=component["src"])
+    _ = run("hatch", "version", dev_version, cwd=component["src"])
 
     print(f"Next version: {dev_version!r}")
     return dev_version
@@ -174,7 +176,7 @@ def generate_changelog(component: Component, version: str):
 
     # For Github Releases
     draft_file = pathlib.Path(component["src"]) / ".changes.md"
-    draft_file.write_text(draft)
+    _ = draft_file.write_text(draft)
 
     with Output(STEP_SUMMARY) as summary:
         f"{draft}\n\n" >> summary
@@ -183,7 +185,7 @@ def generate_changelog(component: Component, version: str):
         return
 
     # Release notes for changelog
-    run("towncrier", "build", "--yes", f"--version={version}", cwd=component["src"])
+    _ = run("towncrier", "build", "--yes", f"--version={version}", cwd=component["src"])
 
 
 def commit_and_tag(component: Component, version: str) -> str:
@@ -195,34 +197,34 @@ def commit_and_tag(component: Component, version: str) -> str:
     if not IS_RELEASE:
         return tag
 
-    run("git", "config", "user.name", "github-actions[bot]")
-    run(
+    _ = run("git", "config", "user.name", "github-actions[bot]")
+    _ = run(
         "git",
         "config",
         "user.email",
         "41898282+github-actions[bot]@users.noreply.github.com",
     )
-    run("git", "commit", "-am", commit, cwd=component["src"])
+    _ = run("git", "commit", "-am", commit, cwd=component["src"])
 
     # Other releases may have run before this, ensure that we're on the latest.
-    run("git", "pull", "--rebase", "origin", "release", cwd=component["src"])
-    run("git", "tag", "-a", tag, "-m", commit, cwd=component["src"])
-    run("git", "push", "origin", "release", cwd=component["src"])
-    run("git", "push", "origin", "--tags", cwd=component["src"])
+    _ = run("git", "pull", "--rebase", "origin", "release", cwd=component["src"])
+    _ = run("git", "tag", "-a", tag, "-m", commit, cwd=component["src"])
+    _ = run("git", "push", "origin", "release", cwd=component["src"])
+    _ = run("git", "push", "origin", "--tags", cwd=component["src"])
 
     return tag
 
 
-def run(*cmd, cwd: Optional[str] = None, capture: bool = False) -> Optional[str]:
+def run(*cmd, cwd: str | None = None, capture: bool = False) -> str | None:
     """Run a command"""
 
     result = subprocess.run(cmd, cwd=cwd, capture_output=capture)
     if result.returncode != 0:
         if capture:
-            sys.stdout.buffer.write(result.stdout)
-            sys.stdout.flush()
-            sys.stderr.buffer.write(result.stderr)
-            sys.stderr.flush()
+            _ = sys.stdout.buffer.write(result.stdout)
+            _ = sys.stdout.flush()
+            _ = sys.stderr.buffer.write(result.stderr)
+            _ = sys.stderr.flush()
 
         sys.exit(result.returncode)
 
@@ -233,7 +235,7 @@ def run(*cmd, cwd: Optional[str] = None, capture: bool = False) -> Optional[str]
 
 
 cli = argparse.ArgumentParser(description="Make a release")
-cli.add_argument(
+_ = cli.add_argument(
     "component",
     help="the component to make a release for.",
     choices=COMPONENTS.keys(),

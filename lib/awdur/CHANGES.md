@@ -3,4 +3,4 @@
 
 ### Misc
 
-- Initial release ([#1](https://github.com/swyddfa/awdur/issues/1))
+- Initial release ([#14](https://github.com/swyddfa/awdur/issues/14))

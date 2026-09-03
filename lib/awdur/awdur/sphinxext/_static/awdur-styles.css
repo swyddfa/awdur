@@ -1,0 +1,57 @@
+/* Default styles for awdur components when rendering via Sphinx. */
+div.awdur-codeblock {
+    margin: 1em 0;
+    border: solid 1px gray;
+}
+
+div.awdur-codeblock pre {
+    padding: 0.7ex;
+}
+
+div.awdur-codeblock-header.container {
+    padding: 0 0.5em;
+}
+
+div.awdur-codeblock-header + div {
+    margin: 0;
+}
+
+
+div.awdur-project-tree {
+    border: solid 1px gray;
+    padding: 0;
+}
+
+div.awdur-project-tree details {
+    padding-left: 1em;
+}
+
+div.awdur-project-tree div.awdur-directory-contents {
+    border-top: solid 1px gray;
+    border-left: solid 1px gray;
+}
+
+div.awdur-project-tree details summary {
+    list-style: none;
+}
+
+div.awdur-project-tree details summary::before {
+    display: inline-block;
+    font-size: 1.1rem;
+    margin-left: 0.5em;
+    margin-right: 0.2em;
+    text-align: center;
+    width: 1.1em;
+}
+
+div.awdur-project-tree details.awdur-directory summary::before {
+    content: "🗀 ";
+}
+
+div.awdur-project-tree details.awdur-file summary::before {
+    content: "🗋 ";
+}
+
+div.awdur-project-tree details:not(:last-child) {
+    border-bottom: solid 1px gray;
+}

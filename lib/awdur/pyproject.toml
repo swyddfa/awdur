@@ -5,9 +5,9 @@ build-backend = "hatchling.build"
 [project]
 name = "awdur"
 dynamic = ["version"]
-description = "An experiment in literate programming built on docutils."
+description = "An experiment in literate programming built on top of doctutils."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Alex Carney", email = "alcarneyme@gmail.com" }]
 classifiers = [
@@ -16,18 +16,24 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Documentation :: Sphinx",
 ]
 dependencies = [
     "docutils",
+    "jinja2",
     "pygments",
 ]
+
+[project.optional-dependencies]
+sphinx = ["sphinx"]
+
+[dependency-groups]
+dev = ["pytest"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/swyddfa/awdur/issues"
@@ -38,7 +44,7 @@ dependencies = [
 awdur = "awdur.cli:main"
 
 [tool.coverage.run]
-parallel = true
+patch = ["subprocess"]
 source_pkgs = ["awdur"]
 
 [tool.coverage.report]

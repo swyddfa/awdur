@@ -1,0 +1,112 @@
+from __future__ import annotations
+
+import typing
+
+from docutils import nodes
+from docutils.transforms import Transform
+
+from awdur.directives import code_block
+from awdur.directives import project_tree
+from awdur.project import Project
+
+if typing.TYPE_CHECKING:
+    from awdur.project import ProjectManager
+
+
+class CodeMetdataVisitor(nodes.SparseNodeVisitor):
+    """Walk a doctree and fill in missing metadata fields based on the surrounding
+    context."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.context = {}
+
+    def visit_docinfo(self, node: nodes.docinfo):
+        """Set the context based on docinfo fields."""
+
+        for field in node:
+            name = field[0].astext()
+            value = field[1].astext()
+
+            self.context[name] = value
+
+    def visit_field_list(self, node: nodes.field_list):
+        """Set the context based on the current field list."""
+        for field in node:
+            name = field[0].astext()
+            value = field[1].astext()
+
+            self.context[name] = value
+
+    def visit_code_block(self, node: code_block):
+        for name, value in self.context.items():
+            if name not in node.attributes and name in code_block.user_attributes:
+                node.attributes[name] = value
+
+    def visit_project_tree(self, node: project_tree) -> None:
+        pass
+
+
+class ResolveProjectMetadataTransform(Transform):
+    """A transform for resolving and inlining metadata relevant to projects."""
+
+    default_priority = 500
+
+    def apply(self):
+        visitor = CodeMetdataVisitor(self.document)
+        _ = self.document.walk(visitor)
+
+
+class BuildProjectsTransform(Transform):
+    """A transform that walks all codeblocks and constructs the project(s) they define."""
+
+    default_priority = ResolveProjectMetadataTransform.default_priority + 1
+
+    def apply(self):
+        manager: ProjectManager = self.document.settings.awdur_project_manager
+
+        for node in self.document.findall(code_block):
+            project_name = node.attributes.get("project", "default")
+            project: Project = manager[project_name]
+
+            filename = node.attributes.get("filename", "<<default>>")
+            code = node.astext()
+
+            if (kind := node.attributes.get("kind")) == "code":
+                template = node.attributes.get("template", None)
+                slot = node.attributes.get("slot", "content")
+                project.add_fragment(code, filename, template=template, slot=slot)
+
+            elif kind == "template":
+                name = node.attributes["name"]
+                project.add_template(name, code)
+
+
+class ProjectBrowserTransform(Transform):
+    """Transform that converts the ``project_tree`` node into an actual project tree."""
+
+    default_priority = BuildProjectsTransform.default_priority + 1
+
+    def apply(self):
+        try:
+            manager: ProjectManager = self.document.settings.awdur_project_manager
+        except AttributeError:
+            # When registered as a post transform in Sphinx, there's no guarantee that
+            # every document will have the `awdur_project_manager` set.
+            #
+            # In that scenario it makes sense to bail, however we will have to see how
+            # masty it makes debugging issues in the future.
+            return
+
+        for node in self.document.findall(condition=project_tree):
+            project_name = node["name"]
+            project: Project = manager[project_name]
+
+            content = project.render_html()
+            tree = nodes.raw("", content, format="html")
+
+            parent = node.parent
+            idx = parent.children.index(node)
+            parent.children.remove(node)
+
+            parent.children.insert(idx, tree)

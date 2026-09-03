@@ -1,0 +1,9 @@
+[tool.esbonio.sphinx]
+buildCommand = ["sphinx-build", "-M", "dirhtml", ".", "${defaultBuildDir}"]
+pythonCommand = [
+    "uv", "run", "--no-project",
+    "--with", "sphinx",
+    "--with", "furo",
+    "--with-editable", "../lib/awdur",
+    "python",
+]
