@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import typing
 
 from docutils import nodes
@@ -25,18 +26,20 @@ class CodeMetdataVisitor(nodes.SparseNodeVisitor):
         """Set the context based on docinfo fields."""
 
         for field in node:
-            name = field[0].astext()
-            value = field[1].astext()
+            with contextlib.suppress(IndexError):
+                name = field[0].astext()
+                value = field[1].astext()
 
-            self.context[name] = value
+                self.context[name] = value
 
     def visit_field_list(self, node: nodes.field_list):
         """Set the context based on the current field list."""
         for field in node:
-            name = field[0].astext()
-            value = field[1].astext()
+            with contextlib.suppress(IndexError):
+                name = field[0].astext()
+                value = field[1].astext()
 
-            self.context[name] = value
+                self.context[name] = value
 
     def visit_code_block(self, node: code_block):
         for name, value in self.context.items():
