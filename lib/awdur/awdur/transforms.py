@@ -8,6 +8,7 @@ from docutils.transforms import Transform
 
 from awdur.directives import code_block
 from awdur.directives import project_tree
+from awdur.project import HtmlExporter
 from awdur.project import Project
 
 if typing.TYPE_CHECKING:
@@ -101,11 +102,13 @@ class ProjectBrowserTransform(Transform):
             # masty it makes debugging issues in the future.
             return
 
+        html = HtmlExporter()
+
         for node in self.document.findall(condition=project_tree):
             project_name = node["name"]
             project: Project = manager[project_name]
 
-            content = project.render_html()
+            content = html.render(project)
             tree = nodes.raw("", content, format="html")
 
             parent = node.parent

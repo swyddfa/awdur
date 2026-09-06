@@ -15,7 +15,7 @@ from awdur.directives import ProjectTreeDirective
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 
-from .extract import extract
+from .extract import register_extract
 from .render import render
 
 if typing.TYPE_CHECKING:
@@ -60,22 +60,7 @@ def get_parser() -> argparse.ArgumentParser:
     _ = parser.add_argument("--debug", action="store_true", help="enable debug mode")
 
     subcommands = parser.add_subparsers(title="commands")
-
-    extract_cmd = subcommands.add_parser("extract")
-    extract_cmd.set_defaults(run=extract)
-    _ = extract_cmd.add_argument(
-        "source", type=pathlib.Path, help="the source file to extract code from"
-    )
-    _ = extract_cmd.add_argument(
-        "-p",
-        "--project",
-        dest="project_name",
-        default="default",
-        help="the code project to extract",
-    )
-    _ = extract_cmd.add_argument(
-        "-o", "--output", type=pathlib.Path, help="the location to write to"
-    )
+    register_extract(subcommands)
 
     render_cmd = subcommands.add_parser("render")
     render_cmd.set_defaults(run=render)

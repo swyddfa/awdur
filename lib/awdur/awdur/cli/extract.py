@@ -1,20 +1,34 @@
 from __future__ import annotations
 
 import pathlib
+import typing
 
 from docutils import io
 from docutils.core import Publisher
 from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
 
+from awdur.project import DirectoryExporter
+from awdur.project import FossilExporter
 from awdur.project import ProjectManager
 from awdur.writers import SourceCodeWriter
+
+if typing.TYPE_CHECKING:
+    import argparse
+    from typing import Literal
+
+
+EXPORTERS = {
+    "directory": DirectoryExporter,
+    "fossil": FossilExporter,
+}
 
 
 def extract(
     source: pathlib.Path,
     *,
     output: pathlib.Path | None = None,
+    format: Literal["directory", "fossil"] = "directory",
     project_name: str = "default",
 ):
     """Extract source code from documentation sources.
@@ -26,6 +40,9 @@ def extract(
 
     output
        The location to write to
+
+    format
+       The format to export the project to.
 
     project_name
        The project name to extract
@@ -70,4 +87,30 @@ def extract(
             raise ValueError("Please provide a destination")
 
     project = manager[project_name]
-    project.export(output)
+    exporter = EXPORTERS[format]()
+    exporter.export(project, output)
+
+
+def register_extract(subcommands: argparse._SubParsersAction):
+    extract_cmd = subcommands.add_parser("extract")
+    extract_cmd.set_defaults(run=extract)
+    _ = extract_cmd.add_argument(
+        "source", type=pathlib.Path, help="the source file to extract code from"
+    )
+    _ = extract_cmd.add_argument(
+        "-p",
+        "--project",
+        dest="project_name",
+        default="default",
+        help="the code project to extract",
+    )
+    _ = extract_cmd.add_argument(
+        "-f",
+        "--format",
+        choices=("directory", "fossil"),
+        default="directory",
+        help="the format to export the project in",
+    )
+    _ = extract_cmd.add_argument(
+        "-o", "--output", type=pathlib.Path, help="the location to write to"
+    )
