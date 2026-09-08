@@ -15,20 +15,28 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import operator
+import os
 import pathlib
 import sqlite3
 import struct
+import subprocess
+import textwrap
 import typing
 import zlib
 from datetime import datetime
 from datetime import timezone
 
+from jinja2 import Environment
+from jinja2 import Template
+
 UTC = timezone.utc
 
 
 if typing.TYPE_CHECKING:
-    from .project import Project
-    from .project import ProjectFile
+    from .manager import Project
+    from .manager import ProjectFile
 
 
 SCHEMA = pathlib.Path(__file__).parent / "fossil_schema.sql"
@@ -43,75 +51,179 @@ ESC_BSLASH = 2 * ASCII_BSLASH
 
 
 class FossilExporter:
+    def __init__(self, logger: logging.Logger | None = None):
+        self.logger = logger or logging.getLogger(__name__)
+        self.username = "awdur"
+        self.users = {}
+
     def export(self, project: Project, output: pathlib.Path):
-        db = init_db(output)
+        dbpath = output.with_suffix(".fossil")
+        if dbpath.exists():
+            raise RuntimeError(
+                f"File {str(dbpath)!r} already exists and incremental exports are not "
+                "supported please delete the existing file or choose another filepath"
+            )
+
+        self.logger.info("Initialising database...")
+        db, checkin = self.init_db(dbpath)
+
+        self.logger.info("Writing artifacts...")
+        env = Environment(loader=project.templates)
+
+        now = datetime.now(tz=UTC)
+        user = self.users[self.username]
+        manifest = Manifest(
+            comment=f"Export files from {project.name}",
+            date=now,
+            user=user.login,
+            previous=[checkin],
+            logger=self.logger,
+        )
+        rcvid = 2
+
+        # Update rcvfrom
+        _ = db.execute(
+            "INSERT INTO rcvfrom(rcvid,uid,mtime) VALUES (?,?,julianday(?, 'unixepoch'))",
+            (rcvid, user.uid, now.timestamp()),
+        )
+
+        for filename, file in project.iter_files():
+            if filename.name == "<<default>>":
+                filename = pathlib.Path(f"{project.default_name}.py")
+
+            content = self.render_file(env, filename, file)
+            blob = Blob.create(content, rcvid).insert(db)
+            self.logger.debug("Blob: %s %s %s bytes", blob.uuid, filename, blob.size)
+            manifest.add_file(filename, blob)
+
+        blob = Blob.create(manifest.build(), rcvid).insert(db)
+        db.commit()
         db.close()
 
+        # The majority of the fossil db can be derived from the sequence of artifacts.
+        # Rather than attempt to keep up with implementation details of the tool, just
+        # run the command provided for this purpose
+        self.logger.info("Rebuilding metadata...")
+        result = subprocess.run(["fossil", "rebuild", "--stats", str(dbpath)])
+        if result.returncode == 0:
+            self.logger.info("Done!")
 
-def init_db(output: pathlib.Path):
-    """Initialize the db ready for writing."""
-    db = sqlite3.connect(output.with_suffix(".fossil"))
-    _ = db.executescript(SCHEMA.read_text())
+    def init_db(self, dbpath: pathlib.Path) -> tuple[sqlite3.Connection, Blob]:
+        """Initialize the db ready for writing.
 
-    # now = datetime.now(tz=UTC)
-    now = datetime.fromisoformat("2026-09-06T19:47:21.579")
-    mtime = int(now.timestamp())
+        Also creates an empty first commit on which the rest of the history can be
+        linked to.
+        """
+        db = sqlite3.connect(dbpath)
+        _ = db.executescript(SCHEMA.read_text())
 
-    _ = db.executemany(
-        "INSERT INTO config(name,value,mtime) VALUES (?,?,?)",
-        [
-            ("aux-schema", "2015-01-24", mtime),
-            ("content-schema", "2", mtime),
-            ("hash-policy", "2", mtime),
-            # TODO: generate proper codes,
-            ("project-code", "12", mtime),
-            ("server-code", "34", mtime),
-        ],
-    )
+        now = datetime.now(tz=UTC)
+        mtime = int(now.timestamp())
 
-    # Without some user accounts ``fossil ui`` will not show anything.
-    username = "alex"
-    users = {
-        u.login: u.insert(db)
-        for u in [
-            # TODO: generate an admin account with default password
-            User(username, pw="", cap="s", info=username, mtime=now),
-            User("anonymous", pw="", cap="hz", info="Anon", mtime=now),
-            User("nobody", pw="", cap="gjorz", info="Noobdy", mtime=now),
-            User("developer", pw="", cap="ei", info="Dev", mtime=now),
-            User("reader", pw="", cap="kptw", info="Reader", mtime=now),
-        ]
-    }
-    user = users[username]
+        _ = db.executemany(
+            "INSERT INTO config(name,value,mtime) VALUES (?,?,?)",
+            [
+                ("aux-schema", "2015-01-24", mtime),
+                ("content-schema", "2", mtime),
+                ("hash-policy", "2", mtime),
+                # TODO: generate proper codes,
+                ("project-code", "12", mtime),
+                ("server-code", "34", mtime),
+            ],
+        )
 
-    # Write the blob containing the initial check-in
-    manifest = Manifest(comment="initial empty check-in", date=now, user=user.login)
-    manifest.add_tag("branch", "trunk")
-    manifest.add_tag("sym-trunk")
+        # Without some user accounts ``fossil ui`` will not show anything.
+        self.users = {
+            u.login: u.insert(db)
+            for u in [
+                # TODO: generate an admin account with default password
+                User(self.username, pw="", cap="s", info=self.username, mtime=now),
+                User("anonymous", pw="", cap="hz", info="Anon", mtime=now),
+                User("nobody", pw="", cap="gjorz", info="Noobdy", mtime=now),
+                User("developer", pw="", cap="ei", info="Dev", mtime=now),
+                User("reader", pw="", cap="kptw", info="Reader", mtime=now),
+            ]
+        }
+        user = self.users[self.username]
 
-    blob = Blob.create(manifest.build())
-    blob = blob.insert(db)
+        # Write the blob containing the initial check-in
+        manifest = Manifest(
+            comment="Initialize project",
+            date=now,
+            user=user.login,
+            logger=self.logger,
+        )
+        manifest.add_tag("branch", "trunk")
+        manifest.add_tag("sym-trunk")
 
-    # Update rcvfrom
-    _ = db.execute(
-        "INSERT INTO rcvfrom(rcvid,uid,mtime) VALUES (?,?,julianday(?, 'unixepoch'))",
-        (1, user.uid, mtime),
-    )
+        rcvid = 1
+        blob = Blob.create(manifest.build(), rcvid)
+        blob = blob.insert(db)
 
-    db.commit()
-    return db
+        # Update rcvfrom
+        _ = db.execute(
+            "INSERT INTO rcvfrom(rcvid,uid,mtime) VALUES (?,?,julianday(?, 'unixepoch'))",
+            (1, user.uid, mtime),
+        )
+
+        db.commit()
+        return db, blob
+
+    def render_file(
+        self, env: Environment, filename: pathlib.Path, file: ProjectFile
+    ) -> str:
+        """Render a file to plain text"""
+        context = {
+            "output": {"path": filename},
+            "slots": file.slots,
+        }
+
+        def insert(lines: list[str], indent: int | str | None = None) -> str:
+            """Insert code into the file."""
+            code = "\n\n".join(lines)
+
+            # Treat the code as a template so we can expand nested substiutions
+            # - is this a horrible idea??
+            t = Template(code)
+            code = t.render(**context, insert=insert)
+
+            # Handle indentation
+            if isinstance(indent, int):
+                indent = indent * " "
+
+            if indent:
+                code = textwrap.indent(code, indent)
+
+            return code
+
+        template = env.get_template(file.template)
+        return template.render(**context, insert=insert)
 
 
 @typing.final
 class Manifest:
     """Responsible for building the manifest entry for a check-in."""
 
-    def __init__(self, comment: str, date: datetime, user: str):
+    def __init__(
+        self,
+        comment: str,
+        date: datetime,
+        user: str,
+        previous: list[Blob] | None = None,
+        logger: logging.Logger | None = None,
+    ):
         self.comment = comment
         self.date = date
+        self.files: list[tuple[str, Blob]] = []
+        self.previous = previous or []
         self.repo_checksum = hashlib.md5()
         self.tags: list[tuple[str, str]] = []
         self.user = user
+
+        self.logger = logger or logging.getLogger(__name__)
+
+    def add_file(self, filename: pathlib.Path, blob: Blob):
+        self.files.append((escape_filename(filename), blob))
 
     def add_tag(self, name: str, value: str = ""):
         self.tags.append((name, value))
@@ -123,21 +235,30 @@ class Manifest:
             f"D {format_date(self.date)}",
         ]
 
-        # TODO: Include files...
+        for filename, blob in sorted(self.files, key=operator.itemgetter(0)):
+            cards.append(f"F {filename} {blob.uuid}")
+
+            # Also update the repository checksum.
+            file = f"{filename}{ASCII_SPACE}{len(blob.text)}{ASCII_NL}{blob.text}"
+            self.repo_checksum.update(file.encode())
+
+        if self.previous:
+            cards.append(f"P {' '.join(b.uuid for b in self.previous)}")
 
         cards.append(f"R {self.repo_checksum.hexdigest()}")
 
         for name, value in self.tags:
-            # '*' refers to 'self' i.e. this manifest, see file format spec  for details.
+            # '*' refers to 'self' i.e. this manifest, see file format spec for details.
             cards.append(f"T *{name} * {value}".strip())
 
         cards.append(f"U {self.user}")
 
         record = "\n".join(cards) + "\n"
         checksum = hashlib.md5(record.encode()).hexdigest()
-        l = record + f"Z {checksum}\n"
-        print(l)
-        return l
+        record += f"Z {checksum}\n"
+
+        self.logger.debug("Check-in:\n%s", record)
+        return record
 
 
 @typing.final
@@ -152,6 +273,7 @@ class Blob:
         self.size = size
         self.uuid = uuid
         self.content = content
+        self._text: str | None = None
 
     def __repr__(self):
         return f"Blob<{self.uuid}; {self.size} bytes>"
@@ -169,7 +291,7 @@ class Blob:
         return Blob.fromdb(*cursor.fetchone())
 
     @classmethod
-    def create(cls, content: str):
+    def create(cls, content: str, rcvid: int):
         """Create a new blob record."""
         bcontent = content.encode()
         uuid = hashlib.sha3_256(bcontent).hexdigest()
@@ -178,11 +300,19 @@ class Blob:
         size = len(bcontent)
         header = struct.pack(">I", size)
 
-        # Not entirely sure what this should be... I have a feeling it's related
-        # to syncing, so *should* be ok to set to 1 for now.
-        rcvid = 1
+        blob = cls(None, rcvid, size, uuid, header + data)
+        blob._text = content
 
-        return cls(None, rcvid, size, uuid, header + data)
+        return blob
+
+    @property
+    def text(self) -> str:
+        """Return the uncompressed text held in a blob."""
+        if self._text is not None:
+            return self._text
+
+        self._text = zlib.decompress(self.content[4:]).decode("utf8")
+        return self._text
 
 
 @typing.final
@@ -259,6 +389,35 @@ class User:
             ),
         )
         return User.fromdb(*cursor.fetchone())
+
+
+def escape_filename(filepath: os.PathLike[str]) -> str:
+    """Validate and escape the given filepath for inclusion in a fossil record.
+
+    .. pull-quote::
+
+       The pathname of the file in the check-in is relative to the root of the project
+       file hierarchy. No ".." or "." directories are allowed within the filename.
+
+       Space characters are escaped as in a C card comment. Backslash and newlines are
+       not allowed within filenames.
+
+       The directory separator character is a forward slash (ASCII 0x2f).
+
+       -- `F card <https://fossil-scm.org/home/doc/trunk/www/fileformat.wiki#manifest>`__
+    """
+    filename = os.fspath(filepath)
+    if "./" in filename or "../" in filename:
+        raise ValueError(
+            f"Invalid path: {filename!r} path must be relative to project root"
+        )
+
+    if ASCII_NL in filename or ASCII_BSLASH in filename:
+        raise ValueError(
+            f"Invalid path: {filename!r}, newlines and backslashes are not permitted"
+        )
+
+    return filename.replace(ASCII_SPACE, ESC_SPACE)
 
 
 def escape_text(text: str) -> str:

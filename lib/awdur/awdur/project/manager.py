@@ -65,7 +65,7 @@ class ProjectManager:
 
     def __getitem__(self, key: str):
         if key not in self.projects:
-            self.projects[key] = Project(default_name=self.default_name)
+            self.projects[key] = Project(key, default_name=self.default_name)
 
         return self.projects[key]
 
@@ -73,7 +73,10 @@ class ProjectManager:
 class Project:
     """An awdur project."""
 
-    def __init__(self, *, default_name: str = "out"):
+    def __init__(self, name: str, *, default_name: str = "out"):
+        self.name: str = name
+        """The name of the project."""
+
         self.default_name: str = default_name
         """The name to assign to the ``<<default>>`` filename"""
 
