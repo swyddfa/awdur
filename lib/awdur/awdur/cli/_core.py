@@ -59,6 +59,14 @@ def get_parser() -> argparse.ArgumentParser:
     )
     _ = parser.add_argument("--debug", action="store_true", help="enable debug mode")
 
+    _ = parser.add_argument(
+        "-v",
+        action="count",
+        dest="verbosity",
+        default=0,
+        help="increase logging verbosity",
+    )
+
     subcommands = parser.add_subparsers(title="commands")
     register_extract(subcommands)
 
@@ -74,14 +82,21 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def setup_logging():
+LOG_LEVELS = [logging.INFO, logging.DEBUG]
+LOG_FORMATS = ["%(message)s"]
+
+
+def setup_logging(verbosity: int) -> logging.Logger:
     """Configure logging for the cli."""
+    log_level = LOG_LEVELS[min(verbosity, len(LOG_LEVELS) - 1)]
+    log_fmt = LOG_FORMATS[min(verbosity, len(LOG_FORMATS) - 1)]
+
     logger = logging.getLogger("awdur")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(log_level)
 
     handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    handler.setLevel(log_level)
+    handler.setFormatter(logging.Formatter(log_fmt))
 
     logger.addHandler(handler)
     return logger

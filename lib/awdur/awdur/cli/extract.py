@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 import typing
 
@@ -27,6 +28,7 @@ EXPORTERS = {
 def extract(
     source: pathlib.Path,
     *,
+    logger: logging.Logger | None = None,
     output: pathlib.Path | None = None,
     format: Literal["directory", "fossil"] = "directory",
     project_name: str = "default",
@@ -37,6 +39,9 @@ def extract(
     ----------
     source
        The source file to extract code from
+
+    logger
+       The logging instance to use.
 
     output
        The location to write to
@@ -87,7 +92,7 @@ def extract(
             raise ValueError("Please provide a destination")
 
     project = manager[project_name]
-    exporter = EXPORTERS[format]()
+    exporter = EXPORTERS[format](logger=logger)
     exporter.export(project, output)
 
 

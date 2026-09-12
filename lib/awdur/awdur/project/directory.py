@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 import subprocess
 import tempfile
@@ -14,6 +15,9 @@ if typing.TYPE_CHECKING:
 class DirectoryExporter:
     """Export a project to files in a directory."""
 
+    def __init__(self, logger: logging.Logger | None = None):
+        self.logger = logger or logging.getLogger(__name__)
+
     def export(self, project: Project, output: pathlib.Path):
         """Export the project to the given location."""
 
@@ -22,7 +26,7 @@ class DirectoryExporter:
         with tempfile.TemporaryDirectory() as tmp:
             repo = pathlib.Path(tmp, f"{project.name}.fossil")
 
-            fossil = FossilExporter()
+            fossil = FossilExporter(logger=self.logger)
             fossil.export(project, repo)
 
             ret = subprocess.run(
