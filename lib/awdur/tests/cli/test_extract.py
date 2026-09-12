@@ -17,7 +17,7 @@ def test_extract_hello_world(workspace: pathlib.Path):
     )
     assert result.returncode == 0
 
-    output = workspace / "hello-world.py"
+    output = workspace / "hello-world" / "hello-world.py"
     assert output.exists()
 
     assert 'print("Hello, World!")\n' == output.read_text()
@@ -32,7 +32,7 @@ def test_extract_multiple_blocks(workspace: pathlib.Path):
     )
     assert result.returncode == 0
 
-    output = workspace / "multiple-blocks.py"
+    output = workspace / "multiple-blocks" / "multiple-blocks.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -93,7 +93,7 @@ def test_extract_multiple_projects_default(workspace: pathlib.Path):
     assert result.returncode == 0
 
     # check hello.py
-    output = workspace / "hello.py"
+    output = workspace / "multiple-projects" / "hello.py"
     assert output.exists()
 
     assert 'print("Hello, World!")\n' == output.read_text()

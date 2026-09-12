@@ -11,6 +11,5 @@ dist:
 	$(HATCH) $(HATCH_ARGS) build
 
 .PHONY: test
-test: ARGS ?= -i py=$(shell $(PY) -c 'import sys;v=sys.version_info;print(f"{v.major}.{v.minor}")')
-test: $(PY)
-	$(HATCH) $(HATCH_ARGS) test $(ARGS)
+test:
+	$(HATCH) $(HATCH_ARGS) test
