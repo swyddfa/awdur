@@ -41,7 +41,8 @@ def env_get_outdated(
 ) -> Sequence[str]:
     """Setup the project instance to use."""
     env.settings["awdur_project_manager"] = ProjectManager(
-        default_name=app.config.root_doc
+        default_name=None,
+        logger=getLogger("awdur"),
     )
 
     return set()

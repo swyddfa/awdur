@@ -88,9 +88,6 @@ class FossilExporter:
         )
 
         for filename, file in project.iter_files():
-            if filename.name == "<<default>>":
-                filename = pathlib.Path(f"{project.default_name}.py")
-
             content = self.render_file(env, filename, file)
             blob = Blob.create(content, rcvid).insert(db)
             self.logger.debug("Blob: %s %s %s bytes", blob.uuid, filename, blob.size)

@@ -58,9 +58,9 @@ class ProjectManager:
     """Manages multiple Project instances."""
 
     def __init__(
-        self, *, default_name: str = "out", logger: logging.Logger | None = None
+        self, *, default_name: str | None = "out", logger: logging.Logger | None = None
     ):
-        self.default_name: str = default_name
+        self.default_name: str | None = default_name
         self.projects: dict[str, Project] = {}
         self.logger = logger or logging.getLogger(__name__)
 
@@ -77,12 +77,13 @@ class ProjectManager:
 class Project:
     """An awdur project."""
 
-    def __init__(self, name: str, *, default_name: str = "out"):
+    def __init__(self, name: str, *, default_name: str | None = "out"):
         self.name: str = name
         """The name of the project."""
 
-        self.default_name: str = default_name
-        """The name to assign to the ``<<default>>`` filename"""
+        self.default_name: str | None = default_name
+        """The name to assign to the ``<<default>>`` filename, if None, the default file
+        is excluded from the project."""
 
         self.files: dict[str, Any] = {}
         """Represents the file hierarchy of the project"""
@@ -134,6 +135,12 @@ class Project:
         slot: str = "content",
     ):
         """Add a code fragment to the project."""
+
+        if filename == "<<default>>":
+            if self.default_name is None:
+                return
+            else:
+                filename = self.default_name
 
         dir_ = self.files
         *parents, name = filename.split("/")

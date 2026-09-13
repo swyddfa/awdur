@@ -1,4 +1,5 @@
 # Global flags to pass to hatch, e.g. -v, --no-color etc.
+PY ?= 3.14
 HATCH = hatch
 HATCH_ARGS =
 
@@ -12,4 +13,4 @@ dist:
 
 .PHONY: test
 test:
-	$(HATCH) $(HATCH_ARGS) test
+	$(HATCH) $(HATCH_ARGS) test -py=$(PY)
