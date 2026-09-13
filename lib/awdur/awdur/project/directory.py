@@ -9,14 +9,21 @@ import typing
 from .fossil import FossilExporter
 
 if typing.TYPE_CHECKING:
+    from typing import Literal
+
     from . import Project
 
 
 class DirectoryExporter:
     """Export a project to files in a directory."""
 
-    def __init__(self, logger: logging.Logger | None = None):
+    def __init__(
+        self,
+        logger: logging.Logger | None = None,
+        existing_files: Literal["keep", "force"] | None = None,
+    ):
         self.logger = logger or logging.getLogger(__name__)
+        self.existing_files = existing_files
 
     def export(self, project: Project, output: pathlib.Path):
         """Export the project to the given location."""
@@ -29,6 +36,25 @@ class DirectoryExporter:
             fossil = FossilExporter(logger=self.logger)
             fossil.export(project, repo)
 
-            ret = subprocess.run(
-                ["fossil", "open", str(repo), "--workdir", str(output)]
+            cmd = ["fossil", "open", str(repo), "--workdir", str(output)]
+            match self.existing_files:
+                case "keep":
+                    cmd.extend(["--keep"])
+                case "force":
+                    cmd.append("--force")
+                case _:
+                    pass  # error if existing files
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
             )
+            if result.returncode == 0:
+                self.logger.info(result.stdout.decode("utf8"))
+            else:
+                self.logger.error(
+                    "Unable to open repository\n%s", result.stderr.decode("utf8")
+                )
+                raise RuntimeError(
+                    f"Fossil process exited with returncode: {result.returncode}"
+                )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 import typing
 
@@ -56,9 +57,12 @@ class TemplateLoader(BaseLoader):
 class ProjectManager:
     """Manages multiple Project instances."""
 
-    def __init__(self, *, default_name: str = "out"):
+    def __init__(
+        self, *, default_name: str = "out", logger: logging.Logger | None = None
+    ):
         self.default_name: str = default_name
         self.projects: dict[str, Project] = {}
+        self.logger = logger or logging.getLogger(__name__)
 
     def __contains__(self, key: str):
         return key in self.projects

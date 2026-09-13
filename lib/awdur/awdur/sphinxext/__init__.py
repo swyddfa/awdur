@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import importlib.resources
+import pathlib
 import typing
 
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.directives.code import CodeBlock
 from sphinx.jinja2glue import SphinxFileSystemLoader
+from sphinx.util.logging import getLogger
 
 from awdur import __version__
 from awdur.directives import code_block
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 from awdur.directives import project_tree
+from awdur.project import DirectoryExporter
 from awdur.project import ProjectManager
 from awdur.transforms import BuildProjectsTransform
 from awdur.transforms import ProjectBrowserTransform
@@ -78,7 +81,12 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
         return
 
     project: Project = manager[project_name]
-    project.export(output=builder.outdir)
+
+    # The behavior doesn't quite line up with how I think about it, but `fossil open --force`
+    # forces fossil to use the dir we say, and generate the files that are included in the
+    # exported project.
+    exporter = DirectoryExporter(logger=manager.logger, existing_files="force")
+    exporter.export(project, output=pathlib.Path(builder.outdir))
 
 
 def no_op(self, node): ...

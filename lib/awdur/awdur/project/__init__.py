@@ -8,7 +8,7 @@ from .manager import ProjectManager
 __all__ = (
     "DirectoryExporter",
     "FossilExporter",
-    "HtmlExpoter",
+    "HtmlExporter",
     "Project",
     "ProjectFile",
     "ProjectManager",
