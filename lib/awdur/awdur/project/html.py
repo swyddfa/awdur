@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import functools
+import logging
 import pathlib
-import textwrap
+import tempfile
 import typing
 
-from jinja2 import Environment
 from jinja2 import Template
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
@@ -14,27 +13,34 @@ from pygments.lexers import get_lexer_for_filename
 from pygments.lexers import guess_lexer
 from pygments.util import ClassNotFound
 
+from .directory import DirectoryExporter
+
 if typing.TYPE_CHECKING:
     from . import Project
     from . import ProjectFile
 
 
 HTML_TEMPLATE = """\
+{%- macro render_dir(root) %}
+  {%- for item in iter_dir(root) %}
+    {%- if item.is_dir() %}
+      <details class="awdur-directory"><summary>{{ item.name }}</summary>
+        <div class="awdur-directory-contents">
+          {{ render_dir(item) }}
+        </div>
+      </details>
+    {%- else %}
+      <details class="awdur-file"><summary>{{ item.name }}</summary>
+        <div class="highlight">
+          <pre class="code literal-block">{{ highlight_code(item.read_text(), item) }}</pre>
+        </div>
+      </details>
+    {%- endif %}
+  {%- endfor %}
+{%- endmacro %}
+
 <div class="awdur-project-tree">
-{%- for item_type, path, item in project.iter() %}
-  {%- if item_type == "enter_dir" %}
-    <details class="awdur-directory"><summary>{{ path.name }}</summary>
-      <div class="awdur-directory-contents">
-  {%- elif item_type == "exit_dir" %}
-    </div></details>
-  {%- elif item_type == "file" and path.name != "<<default>>" %}
-    <details class="awdur-file"><summary>{{ path.name }}</summary>
-      <div class="highlight">
-        <pre class="code literal-block">{%- set src = render_file(path, item) | trim -%}{{ highlight_code(src, path) }}</pre>
-      </div>
-    </details>
-  {%- endif %}
-{%- endfor %}
+  {{ render_dir(repo) }}
 </div>
 """
 
@@ -42,47 +48,32 @@ HTML_TEMPLATE = """\
 class HtmlExporter:
     """Export projects to a html representation."""
 
-    def render(self, project: Project) -> str:
-        """Produce a html representation of the project."""
-        env = Environment(loader=project.templates)
-        template = env.get_template("awdur:project_tree")
-        return template.render(
-            project=project,
-            render_file=functools.partial(render_file, env),
-            highlight_code=highlight_code,
-        )
+    def __init__(self, logger: logging.Logger | None = None) -> None:
+        self.logger = logger or logging.getLogger(__name__)
+
+    def render(self, project: Project):
+        # For now reuse the directory exporter, will come up with a better soln 'soon'
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp, project.name)
+            exporter = DirectoryExporter(self.logger)
+            exporter.export(project, repo)
+
+            self.logger.info("rendering project: %r", str(repo))
+            tmpl = Template(HTML_TEMPLATE)
+            return tmpl.render(
+                repo=repo, highlight_code=highlight_code, iter_dir=iter_dir
+            )
 
     def export(self, project: Project, output: pathlib.Path):
-        raise NotImplementedError("TODO: html export")
+        """Produce a html representation of the project."""
 
 
-def render_file(env: Environment, filename: pathlib.Path, file: ProjectFile) -> str:
-    """Render a file to plain text"""
-    context = {
-        "output": {"path": filename},
-        "slots": file.slots,
-    }
+def iter_dir(root: pathlib.Path):
+    for item in sorted(root.glob("*"), key=lambda i: (not i.is_dir(), i.name)):
+        if item.name == ".fslckout":
+            continue
 
-    def insert(lines: list[str], indent: int | str | None = None) -> str:
-        """Insert code into the file."""
-        code = "\n\n".join(lines)
-
-        # Treat the code as a template so we can expand nested substiutions
-        # - is this a horrible idea??
-        t = Template(code)
-        code = t.render(**context, insert=insert)
-
-        # Handle indentation
-        if isinstance(indent, int):
-            indent = indent * " "
-
-        if indent:
-            code = textwrap.indent(code, indent)
-
-        return code
-
-    template = env.get_template(file.template)
-    return template.render(**context, insert=insert)
+        yield item
 
 
 def highlight_code(code: str, filename: pathlib.Path) -> str:

@@ -104,9 +104,11 @@ class FossilExporter:
         # Rather than attempt to keep up with implementation details of the tool, just
         # run the command provided for this purpose
         self.logger.info("Rebuilding metadata...")
-        result = subprocess.run(["fossil", "rebuild", "--stats", str(dbpath)])
+        result = subprocess.run(
+            ["fossil", "rebuild", "--stats", str(dbpath)], capture_output=True
+        )
         if result.returncode == 0:
-            self.logger.info("Done!")
+            self.logger.info(result.stdout.decode("utf8"))
 
     def init_db(self, dbpath: pathlib.Path) -> tuple[sqlite3.Connection, Blob]:
         """Initialize the db ready for writing.

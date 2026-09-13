@@ -102,7 +102,7 @@ class ProjectBrowserTransform(Transform):
             # masty it makes debugging issues in the future.
             return
 
-        html = HtmlExporter()
+        html = HtmlExporter(logger=manager.logger)
 
         for node in self.document.findall(condition=project_tree):
             project_name = node["name"]
