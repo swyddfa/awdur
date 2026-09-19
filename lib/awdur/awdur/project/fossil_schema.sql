@@ -1,4 +1,7 @@
 -- Fossil database schema
+--
+-- Provides the schema for the main *.fossil project repo.
+--
 -- see: https://fossil-scm.org/home/file?&name=src%252Fschema.c
 
 CREATE TABLE blob(
@@ -78,8 +81,9 @@ CREATE TABLE concealed(
 PRAGMA application_id=252006673;
 
 
--- Anything below this line is rebuilt with ``fossil rebuild`` and we
--- shouldn't ever have to touch it.
+-- Everything below this line is needed to be considered a valid
+-- fossil project, but is can be derived from the above using
+-- ``fossil rebuild`` and so shouldn't ever have to touch it.
 
 CREATE TABLE attachment(
   attachid INTEGER PRIMARY KEY,
@@ -91,6 +95,8 @@ CREATE TABLE attachment(
   comment TEXT,
   user TEXT
 );
+CREATE INDEX attachment_idx1 ON attachment(target, filename, mtime);
+CREATE INDEX attachment_idx2 ON attachment(src);
 
 CREATE TABLE backlink(
   target TEXT,
@@ -99,6 +105,7 @@ CREATE TABLE backlink(
   mtime TIMESTAMP,
   UNIQUE(target, srctype, srcid)
 );
+CREATE INDEX backlink_src ON backlink(srcid, srctype);
 
 CREATE TABLE cherrypick(
   parentid INT,
@@ -106,6 +113,7 @@ CREATE TABLE cherrypick(
   isExclude BOOLEAN DEFAULT false,
   PRIMARY KEY(parentid, childid)
 ) WITHOUT ROWID;
+CREATE INDEX cherrypick_cid ON cherrypick(childid);
 
 CREATE TABLE event(
   type TEXT,
@@ -121,6 +129,7 @@ CREATE TABLE event(
   brief TEXT,
   omtime DATETIME
 );
+CREATE INDEX event_i1 ON event(mtime);
 
 CREATE TABLE filename(
   fnid INTEGER PRIMARY KEY,
@@ -139,11 +148,16 @@ CREATE TABLE mlink(
   mperm INTEGER,
   isaux BOOLEAN DEFAULT 0
 );
+CREATE INDEX mlink_i1 ON mlink(mid);
+CREATE INDEX mlink_i2 ON mlink(fnid);
+CREATE INDEX mlink_i3 ON mlink(fid);
+CREATE INDEX mlink_i4 ON mlink(pid);
 
 CREATE TABLE orphan(
   rid INTEGER PRIMARY KEY,
   baseline INTEGER
 );
+CREATE INDEX orphan_baseline ON orphan(baseline);
 
 CREATE TABLE phantom(
   rid INTEGER PRIMARY KEY
@@ -157,6 +171,7 @@ CREATE TABLE plink(
   baseid INTEGER REFERENCES blob,
   UNIQUE(pid, cid)
 );
+CREATE INDEX plink_i2 ON plink(cid,pid);
 
 CREATE TABLE tag(
   tagid INTEGER PRIMARY KEY,
@@ -173,6 +188,7 @@ CREATE TABLE tagxref(
   rid INTEGER REFERENCE blob,
   UNIQUE(rid, tagid)
 );
+CREATE INDEX tagxref_i1 ON tagxref(tagid, mtime);
 
 CREATE TABLE ticket(
   tkt_id INTEGER PRIMARY KEY,
@@ -201,6 +217,7 @@ CREATE TABLE ticketchng(
   mimetype TEXT,
   icomment TEXT
 );
+CREATE INDEX ticketchng_idx1 ON ticketchng(tkt_id, tkt_mtime);
 
 CREATE TABLE unclustered(
   rid INTEGER PRIMARY KEY
@@ -219,4 +236,4 @@ CREATE VIEW artifact(
   hash,
   content
 ) AS SELECT blob.rid,rcvid,size,1,srcid,uuid,content
-FROM blob LEFT JOIN delta ON (blob.rid=delta.rid)
+FROM blob LEFT JOIN delta ON (blob.rid=delta.rid);
