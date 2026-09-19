@@ -5,6 +5,7 @@ import pathlib
 import typing
 
 from docutils import io
+from docutils import nodes
 from docutils.core import Publisher
 from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
@@ -23,6 +24,16 @@ EXPORTERS = {
     "directory": DirectoryExporter,
     "fossil": FossilExporter,
 }
+
+
+class RstParser(get_parser_class("restructuredtext")):
+    """Our version of the restructuredtext parser to use."""
+
+    @typing.override
+    def setup_parse(self, inputstring: str, document: nodes.document) -> None:
+        # Pass the raw source to the document
+        document.rawsource = inputstring
+        return super().setup_parse(inputstring, document)
 
 
 def extract(
@@ -53,7 +64,7 @@ def extract(
        The project name to extract
     """
     reader_cls = get_reader_class("standalone")
-    parser_cls = get_parser_class("restructuredtext")
+    parser_cls = RstParser
     writer = SourceCodeWriter()
 
     publisher = Publisher(
@@ -64,7 +75,7 @@ def extract(
         source_class=io.FileInput,
     )
 
-    manager = ProjectManager(default_name=source.stem)
+    manager = ProjectManager(default_name=source.stem, logger=logger)
     publisher.process_programmatic_settings(
         settings_spec=None,
         settings_overrides={"awdur_project_manager": manager},

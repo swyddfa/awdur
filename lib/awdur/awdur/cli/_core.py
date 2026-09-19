@@ -83,7 +83,7 @@ def get_parser() -> argparse.ArgumentParser:
 
 
 LOG_LEVELS = [logging.INFO, logging.DEBUG]
-LOG_FORMATS = ["%(message)s"]
+LOG_FORMATS = ["[%(name)s]: %(message)s"]
 
 
 def setup_logging(verbosity: int) -> logging.Logger:
