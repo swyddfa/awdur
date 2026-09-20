@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import pathlib
 import typing
 
+import platformdirs
 from docutils import io
 from docutils import nodes
 from docutils.core import Publisher
@@ -75,7 +78,9 @@ def extract(
         source_class=io.FileInput,
     )
 
-    manager = ProjectManager(default_name=source.stem, logger=logger)
+    manager = ProjectManager(
+        get_cache_dir(source), default_name=source.stem, logger=logger
+    )
     publisher.process_programmatic_settings(
         settings_spec=None,
         settings_overrides={"awdur_project_manager": manager},
@@ -130,3 +135,28 @@ def register_extract(subcommands: argparse._SubParsersAction):
     _ = extract_cmd.add_argument(
         "-o", "--output", type=pathlib.Path, help="the location to write to"
     )
+
+
+def get_cache_dir(source: pathlib.Path):
+    """Return the cache dir corresponding with this path."""
+
+    cache = platformdirs.user_data_dir("awdur", appauthor="swyddfa", ensure_exists=True)
+    index_json = pathlib.Path(cache, "index.json")
+
+    if not index_json.exists():
+        index = {}
+    else:
+        index = json.loads(index_json.read_bytes())
+
+    uri = source.resolve().as_uri()
+    if uri in index:
+        return pathlib.Path(index[uri])
+
+    hash = hashlib.md5(uri.encode())
+    cache_dir = pathlib.Path(cache, hash.hexdigest())
+    cache_dir.mkdir(parents=True)
+
+    index[uri] = str(cache_dir)
+    _ = index_json.write_text(json.dumps(index, indent=2))
+
+    return cache_dir

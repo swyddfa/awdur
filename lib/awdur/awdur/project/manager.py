@@ -53,13 +53,24 @@ class ProjectManager:
     """Manages multiple Project instances."""
 
     def __init__(
-        self, *, default_name: str | None = "out", logger: logging.Logger | None = None
+        self,
+        cache_dir: pathlib.Path,
+        *,
+        default_name: str | None = "out",
+        logger: logging.Logger | None = None,
     ):
+        self.cache_dir: pathlib.Path = cache_dir
+        """The directory that project instances should use."""
+
         self.default_name: str | None = default_name
+        """The default filename to pass to project instances"""
+
         self.projects: dict[str, Project] = {}
+        """The set of projects being managed"""
 
         parent_logger = logger or logging.getLogger(__name__)
         self.logger: logging.Logger = parent_logger.getChild("Project")
+        """"The logger instance to use"""
 
     def __contains__(self, key: str):
         return key in self.projects
@@ -67,7 +78,10 @@ class ProjectManager:
     def __getitem__(self, key: str):
         if key not in self.projects:
             self.projects[key] = Project(
-                key, default_name=self.default_name, logger=self.logger
+                key,
+                cache_dir=self.cache_dir,
+                default_name=self.default_name,
+                logger=self.logger,
             )
 
         return self.projects[key]
@@ -80,13 +94,17 @@ class Project:
         self,
         name: str,
         *,
+        cache_dir: pathlib.Path | None = None,
         default_name: str | None = "out",
         logger: logging.Logger | None = None,
     ):
         self.name: str = name
         """The name of the project."""
 
-        self.default_filename = default_name
+        self.cache_dir: pathlib.Path = cache_dir or pathlib.Path(".").resolve()
+        """The cache dir to use."""
+
+        self.default_filename: str | None = default_name
         """The default filename to use"""
 
         parent_logger = logger or logging.getLogger(__name__)
@@ -100,7 +118,8 @@ class Project:
         """If set, signals that the project has started an update transaction."""
 
     def _init_db(self) -> sqlite3.Connection:
-        db = sqlite3.connect(f"{self.name}.awdprj")
+        dbpath = self.cache_dir / f"{self.name}.awdprj"
+        db = sqlite3.connect(dbpath)
         _ = db.executescript(SCHEMA.read_text())
         db.commit()
 

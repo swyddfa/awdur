@@ -176,6 +176,17 @@ class Manifest:
     uuid: str | None = dataclasses.field(default=None)
     """The uuid of the this manifest's blob, if known"""
 
+    def __repr__(self) -> str:
+        comment = "NO COMMENT"
+        if self.comment:
+            comment = self.comment.splitlines()[0]
+
+        date = "NO DATE"
+        if self.date:
+            date = format_date(self.date)
+
+        return f"Manifest<{date}: {comment}; {len(self.files)} files>"
+
     @classmethod
     def fromblob(cls, blob: Blob):
         """Construct a manifest instance from a blob"""
@@ -209,6 +220,9 @@ class Manifest:
                     filename, uuid, *rest = value.split(" ")
                     # TODO: Handle permissions, old_filename
                     manifest.files[filename] = Manifest.File(filename, Blob(uuid=uuid))
+
+                case "P":
+                    manifest.previous = [p for p in value.split(" ") if p]
 
                 case "R":
                     manifest.rchecksum = value
