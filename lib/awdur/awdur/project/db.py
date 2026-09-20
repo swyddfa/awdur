@@ -56,6 +56,15 @@ class Blob:
         return f"Blob<{self.uuid}; {self.size} bytes>"
 
     @classmethod
+    def find(cls, db: sqlite3.Connection, rid: int):
+        """Find a blob given its rid"""
+        cursor = db.execute("SELECT * FROM BLOB WHERE rid = ?", (rid,))
+        if (row := cursor.fetchone()) is None:
+            return None
+
+        return cls.fromdb(*row)
+
+    @classmethod
     def fromdb(cls, rid: int, rcvid: int, size: int, uuid: str, content: bytes):
         return cls(rid, rcvid, size, uuid, content)
 
@@ -146,7 +155,7 @@ class Manifest:
     mimetype: str | None = dataclasses.field(default=None, kw_only=True)
     """Mime type of the check-in comment"""
 
-    previous: list[Blob] = dataclasses.field(default_factory=list, kw_only=True)
+    previous: list[str] = dataclasses.field(default_factory=list, kw_only=True)
     """The previous manifest(s) this one supercedes."""
 
     rchecksum: str | None = dataclasses.field(default=None, kw_only=True)
@@ -164,10 +173,21 @@ class Manifest:
     zchecksum: str | None = dataclasses.field(default=None)
     """Checksum of the manifest record itself."""
 
+    uuid: str | None = dataclasses.field(default=None)
+    """The uuid of the this manifest's blob, if known"""
+
     @classmethod
     def fromblob(cls, blob: Blob):
         """Construct a manifest instance from a blob"""
-        return cls.fromtext(blob.text)
+        manifest = cls.fromtext(blob.text)
+        manifest.uuid = blob.uuid
+        return manifest
+
+    def toblob(self, rcvid: int):
+        """Make a blob from this manifest."""
+        blob = Blob.create(self.build(), rcvid)
+        self.uuid = blob.uuid
+        return blob
 
     @classmethod
     def fromtext(cls, text: str):
@@ -184,6 +204,11 @@ class Manifest:
                     if not value.endswith("Z"):
                         value += "Z"
                     manifest.date = dt.datetime.fromisoformat(value)
+
+                case "F":
+                    filename, uuid, *rest = value.split(" ")
+                    # TODO: Handle permissions, old_filename
+                    manifest.files[filename] = Manifest.File(filename, Blob(uuid=uuid))
 
                 case "R":
                     manifest.rchecksum = value
@@ -216,7 +241,7 @@ class Manifest:
 
     def add_file(
         self,
-        filename: pathlib.Path,
+        filename: os.PathLike[str],
         blob: Blob,
         permissions: FilePermissions | None = None,
         old_filename: pathlib.Path | None = None,
@@ -234,6 +259,39 @@ class Manifest:
 
     def add_tag(self, name: str, value: str = ""):
         self.tags.append((name, value))
+
+    def make_delta(self):
+        """Made a delta manifest based on this one"""
+        raise NotImplementedError("TODO: Delta manifests")
+
+    def make_update(
+        self,
+        *,
+        comment: str | None = None,
+        date: dt.datetime | None = None,
+        mimetype: str | None = None,
+        tags: list[tuple[str, str]] | None = None,
+        user: str | None = None,
+    ):
+        """Create a new full manifest based on this one."""
+
+        if self.uuid is None:
+            raise RuntimeError(
+                "Cannot make update, blob associated with this manifest is not known."
+            )
+
+        return Manifest(
+            baseline=None,  # full manifests cannot have a baseline
+            comment=comment,
+            date=date,
+            files=self.files,  # full manifests should specify every file
+            mimetype=mimetype,
+            previous=[self.uuid],
+            rchecksum=None,  # checksum should be recalculated
+            tags=tags or [],
+            user=user,
+            zchecksum=None,  # checksum should be recalculated
+        )
 
     def validate(self):
         """Check to see if we have a valid manifest."""
@@ -272,8 +330,11 @@ class Manifest:
             f"D {format_date(self.date)}",
         ]
 
+        for _, file in sorted(self.files.items(), key=operator.itemgetter(0)):
+            cards.append(str(file))
+
         if self.previous:
-            cards.append(f"P {' '.join(b.uuid for b in self.previous)}")
+            cards.append(f"P {' '.join(self.previous)}")
 
         # The rchecksum is optional
         if self.rchecksum is not None:

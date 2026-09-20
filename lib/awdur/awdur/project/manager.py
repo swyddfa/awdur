@@ -117,18 +117,7 @@ class Project:
     def add_src(self, filename: str, src: str) -> Blob | None:
         """Add a src file to the project."""
         fpath = f"src/{filename}"
-        blob = Blob.create(src, self.rcvid)
-
-        # we may have already recorded this blob
-        if (existing := self.get_blob(blob.uuid)) is not None:
-            self.logger.debug("F %s %r, up to date.", fpath, existing)
-            return
-
-        updated = blob.insert(self.db)
-        self.logger.debug("F %s %r, updated.", fpath, updated)
-
-        # TODO: update manifest
-        return updated
+        return self._add_blob(fpath, src)
 
     def add_fragment(
         self,
@@ -183,12 +172,26 @@ class Project:
                 "Unable to start project update, update already in progress"
             )
 
-        self.manifest = Manifest(
-            comment=comment,
-            date=date or dt.datetime.now(tz=UTC),
-            user="awdur",
+        # Is there a previous check in?
+        if (event := Event.find_latest(self.db)) is None:
+            self.manifest = Manifest(
+                comment=comment,
+                date=date or dt.datetime.now(tz=UTC),
+                user="awdur",
+            )
+            self.logger.debug("Starting update...")
+            return
+
+        if (mblob := Blob.find(self.db, rid=event.objid)) is None:
+            raise RuntimeError(f"Unable to load manifest blob rid={event.objid}")
+
+        previous = Manifest.fromblob(mblob)
+        self.manifest = previous.make_update(
+            comment=comment, date=date or dt.datetime.now(tz=UTC), user="awdur"
         )
-        self.logger.debug("Starting update...")
+
+        self.logger.debug("Starting update to %r", previous)
+        return
 
     def abort_update(self):
         """Abort the update."""
@@ -206,9 +209,8 @@ class Project:
             return
 
         # Add the manifest.
-        manifest = self.manifest.build()
-        blob = Blob.create(manifest, self.rcvid).insert(self.db)
-        self.logger.debug("Manifest: %r\n%s", blob, manifest)
+        blob = self.manifest.toblob(self.rcvid).insert(self.db)
+        self.logger.debug("Manifest: %r\n%s", blob, blob.text)
 
         event = Event(
             "ci",
@@ -217,7 +219,7 @@ class Project:
             self.manifest.user,
             self.manifest.comment.splitlines()[0],
         ).insert(self.db)
-        self.logger.debug("Event: %r", event)
+        self.logger.debug("%r", event)
 
         self.db.commit()
         self.manifest = None
@@ -243,6 +245,15 @@ class Event:
     @classmethod
     def fromdb(cls, type: str, mtime: float, objid: int, uid: str, comment: str):
         return cls(type, dt.datetime.fromtimestamp(mtime), objid, uid, comment)
+
+    @classmethod
+    def find_latest(cls, db: sqlite3.Connection):
+        """Find the latest event, or return None."""
+        cursor = db.execute("SELECT * FROM event ORDER BY mtime DESC LIMIT 1")
+        if (row := cursor.fetchone()) is None:
+            return None
+
+        return Event.fromdb(*row)
 
     def insert(self, db: sqlite3.Connection | sqlite3.Cursor):
         """Insert this record into the given db."""
