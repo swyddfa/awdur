@@ -366,6 +366,147 @@ class Manifest:
         return record
 
 
+@typing.final
+@dataclasses.dataclass
+class Rcvfrom:
+    """Represents a row from the ``rcvfrom`` table.
+
+    For lack of a better term I think this counts as a "transaction". Meaning an event
+    that caused the db to be updated. If you clone a repo all blobs appear to be linked
+    to rcvid=1. But as you make commits, each manifest (and related blobs) are linked
+    to separate rcvid's.
+
+    No, I don't fully understand this yet.
+    """
+
+    rcvid: int
+    """The id"""
+
+    uid: int
+    """The user id."""
+
+    mtime: dt.datetime | None = dataclasses.field(default=None, kw_only=True)
+    """The time of the "transaction"."""
+
+    nonce: str | None = dataclasses.field(default=None, kw_only=True)
+
+    ipaddr: str | None = dataclasses.field(default=None, kw_only=True)
+    """If the "transaction" came from a remote server, this records the server's ip."""
+
+    @classmethod
+    def fromdb(
+        cls, rcvid: int, uid: int, mtime: str, nonce: str | None, ipaddr: str | None
+    ):
+        """Create an instance from a database row."""
+        return cls(
+            rcvid,
+            uid,
+            mtime=dt.datetime.fromisoformat(mtime),
+            nonce=nonce,
+            ipaddr=ipaddr,
+        )
+
+    @classmethod
+    def create(cls, uid: int, mtime: dt.datetime | None = None):
+        """Create a new record."""
+        return cls(-1, uid, mtime=mtime)
+
+    def insert(self, db: sqlite3.Connection):
+        """Insert into the database."""
+        cursor = db.execute(
+            "INSERT INTO rcvfrom(uid,mtime,nonce,ipaddr) VALUES (?,?,?,?) "
+            "RETURNING rcvid,uid,strftime('%FT%TZ', mtime, 'unixepoch'),nonce,ipaddr",
+            (self.uid, self.mtime.timestamp(), self.nonce, self.ipaddr),
+        )
+        return Rcvfrom.fromdb(*cursor.fetchone())
+
+
+@typing.final
+@dataclasses.dataclass
+class User:
+    """Represents a row from the ``user`` table."""
+
+    login: str
+    """The user's login name."""
+
+    uid: int | None = dataclasses.field(default=None, kw_only=True)
+
+    pw: str | None = dataclasses.field(default=None, kw_only=True)
+
+    cap: str | None = dataclasses.field(default=None, kw_only=True)
+
+    cookie: str | None = dataclasses.field(default=None, kw_only=True)
+
+    ipaddr: str | None = dataclasses.field(default=None, kw_only=True)
+
+    cexpire: str | None = dataclasses.field(default=None, kw_only=True)
+
+    info: str | None = dataclasses.field(default=None, kw_only=True)
+
+    mtime: dt.datetime | None = dataclasses.field(default=None, kw_only=True)
+
+    photo: bytes | None = dataclasses.field(default=None, kw_only=True)
+
+    jx: str = dataclasses.field(default="", kw_only=True)
+
+    @classmethod
+    def fromdb(
+        cls,
+        uid: int,
+        login: str,
+        pw: str | None,
+        cap: str | None,
+        cookie: str | None,
+        ipaddr: str | None,
+        cexpire: str | None,
+        info: str | None,
+        mtime: str,
+        photo: bytes | None,
+        jx: str,
+    ):
+        return cls(
+            login,
+            uid=uid,
+            pw=pw,
+            cap=cap,
+            cookie=cookie,
+            ipaddr=ipaddr,
+            cexpire=cexpire,
+            info=info,
+            mtime=dt.datetime.fromisoformat(mtime),
+            photo=photo,
+            jx=jx,
+        )
+
+    @classmethod
+    def find(cls, db: sqlite3.Connection, login: str) -> User | None:
+        """Lookup user record by login name."""
+        cursor = db.execute(
+            "SELECT uid,login,pw,cap,cookie,ipaddr,cexpire,info,"
+            "strftime('%FT%TZ', mtime, 'unixepoch'),photo,jx from user WHERE login = ?",
+            (login,),
+        )
+        if (row := cursor.fetchone()) is None:
+            return None
+
+        return cls.fromdb(*row)
+
+    def insert(self, db: sqlite3.Connection | sqlite3.Cursor):
+        cursor = db.execute(
+            "INSERT INTO user(login,pw,cap,info,mtime) VALUES (?,?,?,?,?) "
+            "RETURNING uid,login,pw,cap,cookie,ipaddr,cexpire,info,"
+            "strftime('%FT%TZ', mtime, 'unixepoch'),photo,jx",
+            (
+                self.login,
+                self.pw,
+                self.cap,
+                self.info,
+                int(self.mtime.timestamp()) if self.mtime else None,
+            ),
+        )
+        return User.fromdb(*cursor.fetchone())
+
+
 def escape_filename(filepath: os.PathLike[str]) -> str:
     """Validate and escape the given filepath for inclusion in a fossil record.
 

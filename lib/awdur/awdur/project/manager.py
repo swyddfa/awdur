@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 import pathlib
 import sqlite3
 import typing
@@ -12,6 +13,8 @@ from jinja2 import TemplateNotFound
 
 from .db import Blob
 from .db import Manifest
+from .db import Rcvfrom
+from .db import User
 
 if typing.TYPE_CHECKING:
     from collections.abc import Generator
@@ -19,7 +22,7 @@ if typing.TYPE_CHECKING:
 
 UTC = dt.timezone.utc
 
-SCHEMA = pathlib.Path(__file__).parent / "project_schema.sql"
+SCHEMA = pathlib.Path(__file__).parent / "fossil_schema.sql"
 
 DEFAULT_TEMPLATE = """\
 {%- block header %}{%- endblock %}
@@ -97,6 +100,7 @@ class Project:
         cache_dir: pathlib.Path | None = None,
         default_name: str | None = "out",
         logger: logging.Logger | None = None,
+        username: str | None = None,
     ):
         self.name: str = name
         """The name of the project."""
@@ -111,19 +115,31 @@ class Project:
         self.logger: logging.Logger = parent_logger.getChild(name)
         """The logger instance to use."""
 
-        self.db: sqlite3.Connection = self._init_db()
-        self.rcvid = 1  # probably not needed, but here if we need it.
-
         self.manifest: Manifest | None = None
         """If set, signals that the project has started an update transaction."""
 
-    def _init_db(self) -> sqlite3.Connection:
+        self.rcvfrom: Rcvfrom | None = None
+        """If set, indicated the current "transaction" in progress."""
+
+        db, user = self._init_db(username or os.environ.get("USER", "awdur"))
+        self.db: sqlite3.Connection = db
+        self.user: User = user
+
+    def _init_db(self, username: str) -> tuple[sqlite3.Connection, User]:
         dbpath = self.cache_dir / f"{self.name}.awdprj"
         db = sqlite3.connect(dbpath)
         _ = db.executescript(SCHEMA.read_text())
-        db.commit()
 
-        return db
+        if (user := User.find(db, login=username)) is None:
+            user = User(
+                username,
+                cap="s",
+                info=username,
+                mtime=dt.datetime.now(tz=UTC),
+            ).insert(db)
+
+        db.commit()
+        return db, user
 
     def get_blob(self, uuid: str) -> Blob | None:
         """Return the blob with the given id, returns ``None`` if not found."""
@@ -167,10 +183,10 @@ class Project:
 
     def _add_blob(self, fpath: str, content: str):
         """Add the given blob to the project"""
-        if self.manifest is None:
+        if self.manifest is None or self.rcvfrom is None:
             raise RuntimeError("Unable to add blob to project, update not in progress")
 
-        blob = Blob.create(content, self.rcvid)
+        blob = Blob.create(content, self.rcvfrom.rcvid)
 
         # we may have already recorded this blob
         if (existing := self.get_blob(blob.uuid)) is not None:
@@ -185,31 +201,32 @@ class Project:
 
     def start_update(self, comment: str, date: dt.datetime | None = None):
         """Start a new project update."""
-        if self.manifest is not None:
+        if self.manifest is not None or self.rcvfrom is not None:
             self.abort_update()
             raise RuntimeError(
                 "Unable to start project update, update already in progress"
             )
 
-        # Is there a previous check in?
+        now = date or dt.datetime.now(tz=UTC)
+
+        # Create the manifest
         if (event := Event.find_latest(self.db)) is None:
-            self.manifest = Manifest(
-                comment=comment,
-                date=date or dt.datetime.now(tz=UTC),
-                user="awdur",
+            self.manifest = Manifest(comment=comment, date=now, user=self.user.login)
+            self.logger.debug("Starting first update")
+        else:
+            if (mblob := Blob.find(self.db, rid=event.objid)) is None:
+                raise RuntimeError(f"Unable to load manifest blob rid={event.objid}")
+
+            previous = Manifest.fromblob(mblob)
+            self.manifest = previous.make_update(
+                comment=comment, date=now, user=self.user.login
             )
-            self.logger.debug("Starting update...")
-            return
 
-        if (mblob := Blob.find(self.db, rid=event.objid)) is None:
-            raise RuntimeError(f"Unable to load manifest blob rid={event.objid}")
+            self.logger.debug("Starting update to %r", previous)
 
-        previous = Manifest.fromblob(mblob)
-        self.manifest = previous.make_update(
-            comment=comment, date=date or dt.datetime.now(tz=UTC), user="awdur"
-        )
-
-        self.logger.debug("Starting update to %r", previous)
+        # Create the recvfrom
+        self.rcvfrom = Rcvfrom.create(self.user.uid, mtime=now).insert(self.db)
+        self.logger.debug("rcvid=%s", self.rcvfrom.rcvid)
         return
 
     def abort_update(self):
@@ -222,13 +239,15 @@ class Project:
         """Commit changes to the db."""
 
         # Assume no manifest => no changes
-        if self.manifest is None:
-            self.logger.warning("Commit called without a manifest, rolling back db...")
+        if self.manifest is None or self.rcvfrom is None:
+            self.logger.warning(
+                "Commit called outside of an update, rolling back db..."
+            )
             self.db.rollback()  # to be safe
             return
 
         # Add the manifest.
-        blob = self.manifest.toblob(self.rcvid).insert(self.db)
+        blob = self.manifest.toblob(self.rcvfrom.rcvid).insert(self.db)
         self.logger.debug("Manifest: %r\n%s", blob, blob.text)
 
         event = Event(
@@ -242,6 +261,7 @@ class Project:
 
         self.db.commit()
         self.manifest = None
+        self.rcvfrom = None
         self.logger.debug("Update complete.")
 
 
@@ -268,16 +288,19 @@ class Event:
     @classmethod
     def find_latest(cls, db: sqlite3.Connection):
         """Find the latest event, or return None."""
-        cursor = db.execute("SELECT * FROM event ORDER BY mtime DESC LIMIT 1")
+        cursor = db.execute(
+            "SELECT type, mtime, objid, uid, comment FROM event ORDER BY mtime DESC LIMIT 1"
+        )
         if (row := cursor.fetchone()) is None:
             return None
 
-        return Event.fromdb(*row)
+        return cls.fromdb(*row)
 
     def insert(self, db: sqlite3.Connection | sqlite3.Cursor):
         """Insert this record into the given db."""
         cursor = db.execute(
-            "INSERT INTO event(type, mtime, objid, uid, comment) VALUES (?,?,?,?,?) RETURNING *",
+            "INSERT INTO event(type, mtime, objid, uid, comment) VALUES (?,?,?,?,?) "
+            "RETURNING type, mtime, objid, uid, comment",
             (self.type, self.mtime.timestamp(), self.objid, self.uid, self.comment),
         )
         event = Event.fromdb(*cursor.fetchone())

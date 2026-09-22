@@ -29,6 +29,7 @@ from jinja2 import Template
 
 from .db import Blob
 from .db import Manifest
+from .db import User
 
 UTC = timezone.utc
 
@@ -186,79 +187,3 @@ class FossilExporter:
 
         template = env.get_template(file.template)
         return template.render(**context, insert=insert)
-
-
-@typing.final
-class User:
-    """Represents a row from the ``user`` table."""
-
-    def __init__(
-        self,
-        login: str,
-        *,
-        uid: int | None = None,
-        pw: str | None = None,
-        cap: str | None,
-        cookie: str | None = None,
-        ipaddr: str | None = None,
-        cexpire: str | None = None,
-        info: str | None = None,
-        mtime: datetime | None = None,
-        photo: bytes | None = None,
-        jx: str = "",
-    ):
-        self.login = login
-        self.uid = uid
-        self.pw = pw
-        self.cap = cap
-        self.cookie = cookie
-        self.ipaddr = ipaddr
-        self.cexpire = cexpire
-        self.info = info
-        self.mtime = mtime
-        self.photo = photo
-        self.jx = jx
-
-    @classmethod
-    def fromdb(
-        cls,
-        uid: int,
-        login: str,
-        pw: str | None,
-        cap: str | None,
-        cookie: str | None,
-        ipaddr: str | None,
-        cexpire: str | None,
-        info: str | None,
-        mtime: str,
-        photo: bytes | None,
-        jx: str,
-    ):
-        return cls(
-            login,
-            uid=uid,
-            pw=pw,
-            cap=cap,
-            cookie=cookie,
-            ipaddr=ipaddr,
-            cexpire=cexpire,
-            info=info,
-            mtime=datetime.fromisoformat(mtime),
-            photo=photo,
-            jx=jx,
-        )
-
-    def insert(self, db: sqlite3.Connection | sqlite3.Cursor):
-        cursor = db.execute(
-            "INSERT INTO user(login,pw,cap,info,mtime) VALUES (?,?,?,?,?) "
-            "RETURNING uid,login,pw,cap,cookie,ipaddr,cexpire,info,"
-            "strftime('%FT%TZ', mtime, 'unixepoch'),photo,jx",
-            (
-                self.login,
-                self.pw,
-                self.cap,
-                self.info,
-                int(self.mtime.timestamp()) if self.mtime else None,
-            ),
-        )
-        return User.fromdb(*cursor.fetchone())
