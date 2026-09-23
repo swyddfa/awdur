@@ -217,10 +217,7 @@ class Manifest:
     rchecksum: str | None = dataclasses.field(default=None, kw_only=True)
     """Checksum of all files included in check-in"""
 
-    # Note: likely to change as i figure out how these work.
-    tags: list[tuple[str, str]] | None = dataclasses.field(
-        default_factory=list, kw_only=True
-    )
+    tags: list[Tag] = dataclasses.field(default_factory=list, kw_only=True)
     """Tags."""
 
     user: str | None = dataclasses.field(default=None, kw_only=True)
@@ -284,17 +281,7 @@ class Manifest:
                     manifest.rchecksum = value
 
                 case "T":
-                    # TODO: Figure out how tags actually work!
-                    parts = [
-                        p for v in value.replace("*", "").split(" ") if (p := v.strip())
-                    ]
-                    if len(parts) == 2:
-                        name, val = parts
-                    else:
-                        name = parts[0]
-                        val = ""
-
-                    manifest.add_tag(name, val)
+                    manifest.add_tag(Tag.fromstring(line))
 
                 case "U":
                     manifest.user = value
@@ -327,8 +314,8 @@ class Manifest:
             fname, blob, permissions=permissions, old_filename=old_fname
         )
 
-    def add_tag(self, name: str, value: str = ""):
-        self.tags.append((name, value))
+    def add_tag(self, tag: Tag):
+        self.tags.append(tag)
 
     def make_delta(self):
         """Made a delta manifest based on this one"""
@@ -340,7 +327,7 @@ class Manifest:
         comment: str | None = None,
         date: dt.datetime | None = None,
         mimetype: str | None = None,
-        tags: list[tuple[str, str]] | None = None,
+        tags: list[Tag] | None = None,
         user: str | None = None,
     ):
         """Create a new full manifest based on this one."""
@@ -377,6 +364,12 @@ class Manifest:
                 "Invalid manifest: a check-in must be associated with a user"
             )
 
+        for t in self.tags:
+            if t.uuid != "*":
+                raise ValueError(
+                    "Invalid tag: manifest tags must target '*' (i.e. self)"
+                )
+
         # Calculate the repo checksum
         rchecksum = hashlib.md5()
         for _, file in sorted(self.files.items(), key=operator.itemgetter(0)):
@@ -410,9 +403,8 @@ class Manifest:
         if self.rchecksum is not None:
             cards.append(f"R {self.rchecksum}")
 
-        for name, value in self.tags:
-            # '*' refers to 'self' i.e. this manifest, see file format spec for details.
-            cards.append(f"T *{name} * {value}".strip())
+        tags = sorted([str(t) for t in self.tags])
+        cards.extend(tags)
 
         cards.append(f"U {self.user}")
 
@@ -475,6 +467,55 @@ class Rcvfrom:
             (self.uid, self.mtime.timestamp(), self.nonce, self.ipaddr),
         )
         return Rcvfrom.fromdb(*cursor.fetchone())
+
+
+@typing.final
+@dataclasses.dataclass
+class Tag:
+    """Represents a ``T`` card."""
+
+    type: Literal["+", "*", "-"]
+    """Indicates the propogation rules for the tag.
+
+    - ``+``: One time application to the target artifact.
+    - ``-``: Remove a one time tag, or cancel a propagating tag.
+    - ``*``: Apply to the target artifact and all its children.
+    """
+
+    name: str
+    """The tag's name"""
+
+    uuid: str
+    """The uuid of the artifact the tag should apply to. When used within a manifest,
+    ``*`` should be used."""
+
+    value: str | None = dataclasses.field(default=None)
+    """The value in the case of a property, e.g. branch=value"""
+
+    def __str__(self):
+        tag = f"T {self.type}{self.name} {self.uuid}"
+        if self.value:
+            tag += f" {self.value}"
+        return tag
+
+    @classmethod
+    def fromstring(cls, tag: str):
+        t, name, target, *value = tag.split(" ")
+        if t != "T":
+            raise ValueError(f"String does not represent a tag: {tag!r}")
+
+        type_, name = name[0], name[1:]
+        if type_ not in {"*", "+", "-"}:
+            raise ValueError(f"Invalid tag type: {type_!r}")
+
+        if (N := len(value)) == 0:
+            v = None
+        elif N == 1:
+            v = value[0]
+        else:
+            raise ValueError(f"Extra elements in tag card: {value[1:]}")
+
+        return cls(type_, name, target, v)
 
 
 @typing.final

@@ -5,6 +5,7 @@ import datetime as dt
 import pytest
 
 from awdur.project.db import Manifest
+from awdur.project.db import Tag
 
 UTC = dt.timezone.utc
 
@@ -25,8 +26,10 @@ UTC = dt.timezone.utc
                     microsecond=579000,
                     tzinfo=UTC,
                 ),
-                # Need to figure out how tags actually work...
-                tags=[("branch", "trunk"), ("sym-trunk", "")],
+                tags=[
+                    Tag("*", "branch", "*", "trunk"),
+                    Tag("*", "sym-trunk", "*"),
+                ],
                 user="alex",
             ),
             [
@@ -73,8 +76,10 @@ def test_manifest_build(manifest: Manifest, expected: list[str]):
                     tzinfo=UTC,
                 ),
                 rchecksum="d41d8cd98f00b204e9800998ecf8427e",
-                # Need to figure out how tags actually work...
-                tags=[("branch", "trunk"), ("sym-trunk", "")],
+                tags=[
+                    Tag("*", "branch", "*", "trunk"),
+                    Tag("*", "sym-trunk", "*"),
+                ],
                 user="alex",
                 zchecksum="3d011dae7f184723382e589ffeb06b75",
             ),

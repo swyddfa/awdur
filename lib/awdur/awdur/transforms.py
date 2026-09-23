@@ -113,6 +113,7 @@ class UpdateProjectTransform(Transform):
                         filename=node.attributes.get("filename", "<<default>>"),
                         project=project_name,
                         slot=node.attributes.get("slot", "content"),
+                        revision=node.attributes.get("revision", "1"),
                     )
 
                 case "template":
