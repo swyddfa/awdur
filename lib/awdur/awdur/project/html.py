@@ -16,8 +16,8 @@ from pygments.util import ClassNotFound
 from .directory import DirectoryExporter
 
 if typing.TYPE_CHECKING:
-    from . import Project
     from . import ProjectFile
+    from . import ProjectManager
 
 
 HTML_TEMPLATE = """\
@@ -51,7 +51,7 @@ class HtmlExporter:
     def __init__(self, logger: logging.Logger | None = None) -> None:
         self.logger = logger or logging.getLogger(__name__)
 
-    def render(self, project: Project):
+    def render(self, project: ProjectManager):
         # For now reuse the directory exporter, will come up with a better soln 'soon'
         with tempfile.TemporaryDirectory() as tmp:
             repo = pathlib.Path(tmp, project.name)
@@ -64,7 +64,7 @@ class HtmlExporter:
                 repo=repo, highlight_code=highlight_code, iter_dir=iter_dir
             )
 
-    def export(self, project: Project, output: pathlib.Path):
+    def export(self, project: ProjectManager, output: pathlib.Path):
         """Produce a html representation of the project."""
 
 

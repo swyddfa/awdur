@@ -15,6 +15,8 @@ from docutils.readers import get_reader_class
 
 from awdur.project import DirectoryExporter
 from awdur.project import FossilExporter
+
+# from awdur.project import ProjectExporter
 from awdur.project import ProjectManager
 from awdur.writers import SourceCodeWriter
 
@@ -23,7 +25,7 @@ if typing.TYPE_CHECKING:
     from typing import Literal
 
 
-EXPORTERS = {
+EXPORTERS: dict[str, "ProjectExporter"] = {
     "directory": DirectoryExporter,
     "fossil": FossilExporter,
 }
@@ -78,9 +80,7 @@ def extract(
         source_class=io.FileInput,
     )
 
-    manager = ProjectManager(
-        get_cache_dir(source), default_name=source.stem, logger=logger
-    )
+    manager = ProjectManager(cache_dir=get_cache_dir(source), logger=logger)
     publisher.process_programmatic_settings(
         settings_spec=None,
         settings_overrides={"awdur_project_manager": manager},
@@ -94,9 +94,6 @@ def extract(
     if document.reporter.max_level >= 3:
         return 1
 
-    if project_name not in manager:
-        raise ValueError(f"Project {project_name!r} is not defined")
-
     if output is None:
         # Use the project name if it's not the default one
         if project_name != "default":
@@ -107,9 +104,8 @@ def extract(
         if output == source:
             raise ValueError("Please provide a destination")
 
-    project = manager[project_name]
-    exporter = EXPORTERS[format](logger=logger)
-    exporter.export(project, output)
+    exporter = EXPORTERS[format]
+    manager.export(project_name, exporter, output)
 
 
 def register_extract(subcommands: argparse._SubParsersAction):

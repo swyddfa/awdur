@@ -16,9 +16,9 @@ from awdur.directives import define_template
 from awdur.directives import project_tree
 from awdur.project import DirectoryExporter
 from awdur.project import ProjectManager
-from awdur.transforms import BuildProjectsTransform
 from awdur.transforms import ProjectBrowserTransform
 from awdur.transforms import ResolveProjectMetadataTransform
+from awdur.transforms import UpdateProjectTransform
 
 from .builder import AwdurBuilder
 from .domain import AwdurDomain
@@ -29,7 +29,7 @@ if typing.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
 
-    from awdur.project import Project
+    from awdur.project import ProjectManager
 
 
 def env_get_outdated(
@@ -81,7 +81,7 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
     if project_name not in manager:
         return
 
-    project: Project = manager[project_name]
+    project: ProjectManager = manager[project_name]
 
     # The behavior doesn't quite line up with how I think about it, but `fossil open --force`
     # forces fossil to use the dir we say, and generate the files that are included in the
@@ -129,7 +129,7 @@ def setup(app: Sphinx):
 
     # Register custom transforms
     app.add_transform(ResolveProjectMetadataTransform)
-    app.add_transform(BuildProjectsTransform)
+    app.add_transform(UpdateProjectTransform)
     app.add_post_transform(ProjectBrowserTransform)
 
     return {"version": __version__, "parallel_read_safe": True}

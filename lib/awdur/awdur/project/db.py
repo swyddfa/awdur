@@ -56,9 +56,23 @@ class Blob:
         return f"Blob<{self.uuid}; {self.size} bytes>"
 
     @classmethod
-    def find(cls, db: sqlite3.Connection, rid: int):
-        """Find a blob given its rid"""
-        cursor = db.execute("SELECT * FROM BLOB WHERE rid = ?", (rid,))
+    def find(
+        cls, db: sqlite3.Connection, *, rid: int | None = None, uuid: str | None = None
+    ):
+        """Find a blob given its rid or uuid"""
+
+        if rid is not None:
+            query = "SELECT * FROM BLOB WHERE rid = ?"
+            params = (rid,)
+
+        elif uuid is not None:
+            query = "SELECT * FROM BLOB WHERE uuid = ?"
+            params = (uuid,)
+
+        else:
+            raise ValueError("Either rid or uuid must be provided")
+
+        cursor = db.execute(query, params)
         if (row := cursor.fetchone()) is None:
             return None
 
@@ -103,6 +117,48 @@ class Blob:
 
         self._text = zlib.decompress(self.content[4:]).decode("utf8")
         return self._text
+
+
+@typing.final
+class Event:
+    """Represents a record the ``event`` table."""
+
+    def __init__(
+        self, type: str, mtime: dt.datetime, objid: int, uid: str, comment: str
+    ):
+        self.type = type
+        self.mtime = mtime
+        self.objid = objid
+        self.uid = uid
+        self.comment = comment
+
+    def __repr__(self):
+        return f"Event<{self.uid}({self.type}); {self.comment}>"
+
+    @classmethod
+    def fromdb(cls, type: str, mtime: float, objid: int, uid: str, comment: str):
+        return cls(type, dt.datetime.fromtimestamp(mtime), objid, uid, comment)
+
+    @classmethod
+    def find_latest(cls, db: sqlite3.Connection):
+        """Find the latest event, or return None."""
+        cursor = db.execute(
+            "SELECT type, mtime, objid, uid, comment FROM event ORDER BY mtime DESC LIMIT 1"
+        )
+        if (row := cursor.fetchone()) is None:
+            return None
+
+        return cls.fromdb(*row)
+
+    def insert(self, db: sqlite3.Connection | sqlite3.Cursor):
+        """Insert this record into the given db."""
+        cursor = db.execute(
+            "INSERT INTO event(type, mtime, objid, uid, comment) VALUES (?,?,?,?,?) "
+            "RETURNING type, mtime, objid, uid, comment",
+            (self.type, self.mtime.timestamp(), self.objid, self.uid, self.comment),
+        )
+        event = Event.fromdb(*cursor.fetchone())
+        return event
 
 
 @typing.final

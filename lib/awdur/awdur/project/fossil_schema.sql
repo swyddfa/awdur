@@ -4,7 +4,7 @@
 --
 -- see: https://fossil-scm.org/home/file?&name=src%252Fschema.c
 
-CREATE TABLE IF NOT EXISTS blob(
+CREATE TABLE blob(
   rid INTEGER PRIMARY KEY,
   rcvid INTEGER,
   size INTEGER,
@@ -13,14 +13,14 @@ CREATE TABLE IF NOT EXISTS blob(
   CHECK( length(uuid)>=40 AND rid>0 )
 );
 
-CREATE TABLE IF NOT EXISTS delta(
+CREATE TABLE delta(
   rid INTEGER PRIMARY KEY,
   srcid INTEGER NOT NULL REFERENCES blob
 );
-CREATE INDEX IF NOT EXISTS delta_i1 ON delta(srcid);
+CREATE INDEX  delta_i1 ON delta(srcid);
 
 
-CREATE TABLE IF NOT EXISTS rcvfrom(
+CREATE TABLE rcvfrom(
   rcvid INTEGER PRIMARY KEY,
   uid INTEGER REFERENCES user,
   mtime DATETIME,
@@ -29,14 +29,14 @@ CREATE TABLE IF NOT EXISTS rcvfrom(
 );
 
 
-CREATE TABLE IF NOT EXISTS config(
+CREATE TABLE config(
   name TEXT PRIMARY KEY NOT NULL,
   value CLOB,
   mtime DATE,
   CHECK( typeof(name)='text' AND length(name)>=1 )
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS user(
+CREATE TABLE user(
   uid INTEGER PRIMARY KEY,
   login TEXT UNIQUE,
   pw TEXT,
@@ -50,17 +50,17 @@ CREATE TABLE IF NOT EXISTS user(
   jx TEXT DEFAULT '{}'
 );
 
-CREATE TABLE IF NOT EXISTS shun(
+CREATE TABLE shun(
   uuid TEXT PRIMARY KEY,
   mtime DATE,
   scom TEXT
 ) WITHOUT ROWID;
 
 
-CREATE TABLE IF NOT EXISTS private(rid INTEGER PRIMARY KEY);
+CREATE TABLE private(rid INTEGER PRIMARY KEY);
 
 
-CREATE TABLE IF NOT EXISTS reportfmt(
+CREATE TABLE reportfmt(
    rn INTEGER PRIMARY KEY,
    owner TEXT,
    title TEXT UNIQUE,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS reportfmt(
    jx TEXT DEFAULT '{}'
 );
 
-CREATE TABLE IF NOT EXISTS concealed(
+CREATE TABLE concealed(
   hash TEXT PRIMARY KEY,
   mtime DATE,
   content TEXT
@@ -83,9 +83,9 @@ CREATE TABLE IF NOT EXISTS concealed(
 
 -- Everything below this line is needed to be considered a valid
 -- fossil project, but is can be derived from the above using
--- ``fossil rebuild`` and so shouldn't ever have to touch it.
+-- ``fossil rebuild`` and so we shouldn't ever have to touch it.
 
-CREATE TABLE IF NOT EXISTS attachment(
+CREATE TABLE attachment(
   attachid INTEGER PRIMARY KEY,
   isLatest BOOLEAN DEFAULT 0,
   mtime TIMESTAMP,
@@ -95,27 +95,27 @@ CREATE TABLE IF NOT EXISTS attachment(
   comment TEXT,
   user TEXT
 );
-CREATE INDEX IF NOT EXISTS attachment_idx1 ON attachment(target, filename, mtime);
-CREATE INDEX IF NOT EXISTS attachment_idx2 ON attachment(src);
+CREATE INDEX attachment_idx1 ON attachment(target, filename, mtime);
+CREATE INDEX attachment_idx2 ON attachment(src);
 
-CREATE TABLE IF NOT EXISTS backlink(
+CREATE TABLE backlink(
   target TEXT,
   srctype INT,
   srcid INT,
   mtime TIMESTAMP,
   UNIQUE(target, srctype, srcid)
 );
-CREATE INDEX IF NOT EXISTS backlink_src ON backlink(srcid, srctype);
+CREATE INDEX backlink_src ON backlink(srcid, srctype);
 
-CREATE TABLE IF NOT EXISTS cherrypick(
+CREATE TABLE cherrypick(
   parentid INT,
   childid INT,
   isExclude BOOLEAN DEFAULT false,
   PRIMARY KEY(parentid, childid)
 ) WITHOUT ROWID;
-CREATE INDEX IF NOT EXISTS cherrypick_cid ON cherrypick(childid);
+CREATE INDEX cherrypick_cid ON cherrypick(childid);
 
-CREATE TABLE IF NOT EXISTS event(
+CREATE TABLE event(
   type TEXT,
   mtime DATETIME,
   objid INTEGER PRIMARY KEY,
@@ -129,16 +129,16 @@ CREATE TABLE IF NOT EXISTS event(
   brief TEXT,
   omtime DATETIME
 );
-CREATE INDEX IF NOT EXISTS event_i1 ON event(mtime);
+CREATE INDEX event_i1 ON event(mtime);
 
-CREATE TABLE IF NOT EXISTS filename(
+CREATE TABLE filename(
   fnid INTEGER PRIMARY KEY,
   name TEXT UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS leaf(rid INTEGER PRIMARY KEY);
+CREATE TABLE leaf(rid INTEGER PRIMARY KEY);
 
-CREATE TABLE IF NOT EXISTS mlink(
+CREATE TABLE mlink(
   mid INTEGER,
   fid INTEGER,
   pmid INTEGER,
@@ -148,22 +148,22 @@ CREATE TABLE IF NOT EXISTS mlink(
   mperm INTEGER,
   isaux BOOLEAN DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS mlink_i1 ON mlink(mid);
-CREATE INDEX IF NOT EXISTS mlink_i2 ON mlink(fnid);
-CREATE INDEX IF NOT EXISTS mlink_i3 ON mlink(fid);
-CREATE INDEX IF NOT EXISTS mlink_i4 ON mlink(pid);
+CREATE INDEX mlink_i1 ON mlink(mid);
+CREATE INDEX mlink_i2 ON mlink(fnid);
+CREATE INDEX mlink_i3 ON mlink(fid);
+CREATE INDEX mlink_i4 ON mlink(pid);
 
-CREATE TABLE IF NOT EXISTS orphan(
+CREATE TABLE orphan(
   rid INTEGER PRIMARY KEY,
   baseline INTEGER
 );
-CREATE INDEX IF NOT EXISTS orphan_baseline ON orphan(baseline);
+CREATE INDEX orphan_baseline ON orphan(baseline);
 
-CREATE TABLE IF NOT EXISTS phantom(
+CREATE TABLE phantom(
   rid INTEGER PRIMARY KEY
 );
 
-CREATE TABLE IF NOT EXISTS plink(
+CREATE TABLE plink(
   pid INTEGER REFERENCES blob,
   cid INTEGER REFERENCES blob,
   isprim BOOLEAN,
@@ -171,14 +171,14 @@ CREATE TABLE IF NOT EXISTS plink(
   baseid INTEGER REFERENCES blob,
   UNIQUE(pid, cid)
 );
-CREATE INDEX IF NOT EXISTS plink_i2 ON plink(cid,pid);
+CREATE INDEX plink_i2 ON plink(cid,pid);
 
-CREATE TABLE IF NOT EXISTS tag(
+CREATE TABLE tag(
   tagid INTEGER PRIMARY KEY,
   tagname TEXT UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS tagxref(
+CREATE TABLE tagxref(
   tagid INTEGER REFERENCES tag,
   tagtype INTEGER,
   srcid INTEGER REFERENCES blob,
@@ -188,9 +188,9 @@ CREATE TABLE IF NOT EXISTS tagxref(
   rid INTEGER REFERENCE blob,
   UNIQUE(rid, tagid)
 );
-CREATE INDEX IF NOT EXISTS tagxref_i1 ON tagxref(tagid, mtime);
+CREATE INDEX tagxref_i1 ON tagxref(tagid, mtime);
 
-CREATE TABLE IF NOT EXISTS ticket(
+CREATE TABLE ticket(
   tkt_id INTEGER PRIMARY KEY,
   tkt_uuid TEXT UNIQUE,
   tkt_mtime DATE,
@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS ticket(
   comment TEXT
 );
 
-CREATE TABLE IF NOT EXISTS ticketchng(
+CREATE TABLE ticketchng(
   tkt_id INTEGER REFERENCES ticket,
   tkt_rid INTEGER REFERENCES blob,
   tkt_mtime DATE,
@@ -217,17 +217,17 @@ CREATE TABLE IF NOT EXISTS ticketchng(
   mimetype TEXT,
   icomment TEXT
 );
-CREATE INDEX IF NOT EXISTS ticketchng_idx1 ON ticketchng(tkt_id, tkt_mtime);
+CREATE INDEX ticketchng_idx1 ON ticketchng(tkt_id, tkt_mtime);
 
-CREATE TABLE IF NOT EXISTS unclustered(
+CREATE TABLE unclustered(
   rid INTEGER PRIMARY KEY
 );
 
-CREATE TABLE IF NOT EXISTS unsent(
+CREATE TABLE unsent(
   rid INTEGER PRIMARY KEY
 );
 
-CREATE VIEW IF NOT EXISTS artifact(
+CREATE VIEW artifact(
   rid,
   rcvid,
   size,

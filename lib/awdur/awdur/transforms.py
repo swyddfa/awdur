@@ -10,7 +10,7 @@ from awdur.directives import code_block
 from awdur.directives import project_tree
 from awdur.project import Blob
 from awdur.project import HtmlExporter
-from awdur.project import Project
+from awdur.project import ProjectManager
 
 if typing.TYPE_CHECKING:
     from awdur.project import ProjectManager
@@ -74,30 +74,33 @@ class ResolveProjectMetadataTransform(Transform):
         self.document.attributes["projects"] = visitor.found_projects
 
 
-class BuildProjectsTransform(Transform):
-    """A transform that walks all codeblocks and constructs the project(s) they define."""
+class UpdateProjectTransform(Transform):
+    """A transform that walks all codeblocks and updates the project state."""
 
     default_priority = ResolveProjectMetadataTransform.default_priority + 1
 
     def apply(self):
         manager: ProjectManager = self.document.settings.awdur_project_manager
-        self.logger = manager.logger.getChild("Updater")
 
-        projects = self.get_projects(manager)
-        if len(projects) == 0:
+        # Not sure why this is not set on the document itself...
+        filename = self.document.reporter.source
+        src = self.document.rawsource
+        srcblob = Blob.create(src, -1)
+
+        if manager.get_blob(srcblob.uuid) is not None:
+            manager.logger.debug("Source file %r up to date, nothing to do.", filename)
             return
+
+        # TODO: need to rethink this for the Sphinx use case.
+        if not manager.updating:
+            manager.start_update(f"Updated {filename}")
+
+        _ = manager.add_src(src, filename)
 
         for node in self.document.findall(code_block):
             if (project_name := node.attributes.get("project")) is None:
-                self.logger.debug(
+                manager.logger.debug(
                     "skipping code block, not part of any project\n%s", node.astext()
-                )
-                continue
-
-            if (project := projects.get(project_name)) is None:
-                self.logger.debug(
-                    "skipping code block, project up to date or disabled\n%s",
-                    node.astext(),
                 )
                 continue
 
@@ -105,62 +108,31 @@ class BuildProjectsTransform(Transform):
 
             match node.attributes.get("kind"):
                 case "code":
-                    _ = project.add_fragment(
+                    _ = manager.add_fragment(
                         code,
                         filename=node.attributes.get("filename", "<<default>>"),
-                        template=node.attributes.get("template", None),
+                        project=project_name,
                         slot=node.attributes.get("slot", "content"),
                     )
 
                 case "template":
                     name = node.attributes["name"]
-                    project.add_template(name, code)
+                    _ = manager.add_template(name, code, project_name)
 
                 case _:
-                    self.logger.warning(
+                    manager.logger.warning(
                         "skipping code block, unknown kind %r\n%s", code
                     )
 
-        # Be sure to commit changes to the projects!
+        # Be sure to commit changes!
         # TODO: Probably need to rethink this in the Sphinx use case.
-        for project in projects.values():
-            project.commit_update()
-
-    def get_projects(self, manager: ProjectManager) -> dict[str, Project]:
-        """Return the projects to be processed."""
-
-        # Get the projects referenced by this document.
-        project_names = self.document.attributes["projects"]
-        projects = {p: manager[p] for p in project_names}
-
-        if len(projects) == 0:
-            # Nothing to do.
-            return {}
-
-        # Not sure why this is not set on the document itself...
-        filename = self.document.reporter.source
-        src = self.document.rawsource
-        srcblob = Blob.create(src, -1)
-
-        stale_projects: dict[str, Project] = {}
-        for project in projects.values():
-            # Has the project already seen this version of the file?
-            if project.get_blob(srcblob.uuid) is not None:
-                self.logger.debug("project %r up to date, skipping", project.name)
-                continue
-
-            # TODO: need to rethink this for the Sphinx use case.
-            project.start_update(f"Updated {filename}")
-            _ = project.add_src(filename, src)
-            stale_projects[project.name] = project
-
-        return stale_projects
+        manager.commit_update()
 
 
 class ProjectBrowserTransform(Transform):
     """Transform that converts the ``project_tree`` node into an actual project tree."""
 
-    default_priority = BuildProjectsTransform.default_priority + 1
+    default_priority = UpdateProjectTransform.default_priority + 1
 
     def apply(self):
         try:
@@ -177,7 +149,7 @@ class ProjectBrowserTransform(Transform):
 
         for node in self.document.findall(condition=project_tree):
             project_name = node["name"]
-            project: Project = manager[project_name]
+            project: ProjectManager = manager[project_name]
 
             content = html.render(project)
             tree = nodes.raw("", content, format="html")

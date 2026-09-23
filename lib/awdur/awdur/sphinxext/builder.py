@@ -53,7 +53,7 @@ class AwdurBuilder(Builder):
         """Actually write all the code to disk"""
 
         manager: ProjectManager = self.env.settings["awdur_project_manager"]
-        exporter = DirectoryExporter(logger=manager.logger)
+        exporter = DirectoryExporter(logger=manager.logger, existing_files="force")
 
         for name, project in manager.projects.items():
             exporter.export(project, self.outpath / name)

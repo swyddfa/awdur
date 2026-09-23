@@ -11,7 +11,7 @@ from .fossil import FossilExporter
 if typing.TYPE_CHECKING:
     from typing import Literal
 
-    from . import Project
+    from . import ProjectManager
 
 
 class DirectoryExporter:
@@ -25,7 +25,7 @@ class DirectoryExporter:
         self.logger = logger or logging.getLogger(__name__)
         self.existing_files = existing_files
 
-    def export(self, project: Project, output: pathlib.Path):
+    def export(self, project: ProjectManager, output: pathlib.Path):
         """Export the project to the given location."""
 
         # For now, just shove the fossil project into a temp directory, but it probably

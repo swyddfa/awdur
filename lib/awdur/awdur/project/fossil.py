@@ -35,7 +35,7 @@ UTC = timezone.utc
 
 
 if typing.TYPE_CHECKING:
-    from .manager import Project
+    from .manager import ProjectManager
 
 
 SCHEMA = pathlib.Path(__file__).parent / "fossil_schema.sql"
@@ -47,7 +47,7 @@ class FossilExporter:
         self.username = "awdur"
         self.users = {}
 
-    def export(self, project: Project, output: pathlib.Path):
+    def export(self, project: ProjectManager, output: pathlib.Path):
         dbpath = output.with_suffix(".fossil")
         if dbpath.exists():
             raise RuntimeError(

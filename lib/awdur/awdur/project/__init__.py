@@ -2,7 +2,6 @@ from .db import Blob
 from .directory import DirectoryExporter
 from .fossil import FossilExporter
 from .html import HtmlExporter
-from .manager import Project
 from .manager import ProjectManager
 
 __all__ = (
@@ -10,6 +9,5 @@ __all__ = (
     "DirectoryExporter",
     "FossilExporter",
     "HtmlExporter",
-    "Project",
     "ProjectManager",
 )
