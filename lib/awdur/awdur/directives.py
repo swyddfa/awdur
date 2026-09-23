@@ -17,6 +17,7 @@ class code_block(nodes.General, nodes.Element):
         "project",
         "filename",
         "slot",
+        "revision",
     )
 
     valid_attributes = (

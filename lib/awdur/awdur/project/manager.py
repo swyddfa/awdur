@@ -17,6 +17,7 @@ from .db import Blob
 from .db import Event
 from .db import Manifest
 from .db import Rcvfrom
+from .db import Tag
 from .db import User
 
 if typing.TYPE_CHECKING:
@@ -205,7 +206,10 @@ class ProjectManager:
                 comment=comment,
                 date=now,
                 user=self.user.login,
-                tags=[("branch", "trunk"), ("sym-trunk", "")],
+                tags=[
+                    Tag("*", "branch", "*", "trunk"),
+                    Tag("*", "sym-trunk", "*"),
+                ],
             )
             self.logger.debug("Starting first update")
         else:
@@ -283,7 +287,7 @@ class ProjectManager:
 
         for rev, fileset in timeline.items():
             self.logger.debug("Exporting revision: %r", rev)
-            comment = f"Project {project!r} export rev {rev}"
+            comment = f"Project export"
             date = dt.datetime.now(tz=UTC)
 
             if project_manifest is None:
@@ -293,15 +297,17 @@ class ProjectManager:
                     date=date,
                     user=self.user.login,
                     tags=[
-                        ("branch", project),
-                        (f"sym-{project}", ""),
-                    ],  # only needed for first check-in - I think!
+                        Tag("*", "branch", "*", project),
+                        Tag("*", f"sym-{project}", "*"),
+                        Tag("*", "source", "*", mblob.uuid),
+                    ],
                 )
             else:
                 project_manifest = project_manifest.make_update(
                     comment=comment, date=date, user=self.user.login
                 )
 
+            project_manifest.add_tag(Tag("+", "rev", "*", rev))
             rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(self.db)
             for filename, slotblobs in fileset.items():
                 context: dict[str, Any] = {
