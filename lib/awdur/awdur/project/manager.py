@@ -39,7 +39,7 @@ class ProjectManager:
         username: str | None = None,
     ):
         self.logger: logging.Logger = (logger or logging.getLogger(__name__)).getChild(
-            __name__
+            self.__class__.__name__
         )
         """The logger instance to use."""
 
@@ -110,6 +110,7 @@ class ProjectManager:
         filename: str,
         project: str,
         revision: str = "1",
+        index: int = -1,
         slot: str = "content",
     ):
         """Add a code fragment to a project.
@@ -130,12 +131,22 @@ class ProjectManager:
 
         slot
            The slot to associate the fragment with.
+
+        index
+           The index at which the fragment should be inserted
         """
+        if not self.updating:
+            raise RuntimeError("Unable to add code fragment, update not in progress")
 
-        # TODO: Handle multiple blocks per slot.
-        idx = 0
+        prefix = f"project/{project}/file/{filename}/{slot}/{revision}/"
+        if index == -1:
+            # Look at existing files to see what slot index we should use
+            idx = len([f for f in self.manifest.files if f.startswith(prefix)])
+        else:
+            # TODO: Validate index is not taken.
+            idx = index
 
-        fpath = f"project/{project}/file/{filename}/{slot}/{revision}/{idx}"
+        fpath = f"{prefix}{idx}"
         return self._add_blob(fpath, code)
 
     def add_template(self, name: str, content: str, project: str):
@@ -293,8 +304,6 @@ class ProjectManager:
 
             rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(self.db)
             for filename, slotblobs in fileset.items():
-                self.logger.debug("  Exporting file: %r", filename)
-
                 context: dict[str, Any] = {
                     "output": {"path": filename},
                     "slots": self.resolve_file_content(slotblobs),
