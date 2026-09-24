@@ -1,12 +1,33 @@
+"""Manages the construction and representation of awdur project databases.
+
+Awdur's project representation is built on top of the fossil file format.
+
+.. seealso::
+
+   `src/schema.c <https://fossil-scm.org/home/file?name=src%2Fschema.c>`__
+      The code defining the structure of the database
+
+   `Fossil File Format <https://fossil-scm.org/home/doc/trunk/www/fileformat.wiki>`__
+      Defines the structure of each of the main db records, manifest, tickets, etc.
+
+   `Fossil is not Relational <https://fossil-scm.org/home/doc/trunk/www/fossil-is-not-relational.md>`__
+      Notes on the overall data model.
+
+"""
+
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import logging
 import os
 import pathlib
 import sqlite3
+import subprocess
 import textwrap
 import typing
+import uuid
+from contextlib import contextmanager
 
 from jinja2 import BaseLoader
 from jinja2 import Environment
@@ -14,6 +35,7 @@ from jinja2 import Template
 from jinja2 import TemplateNotFound
 
 from .db import Blob
+from .db import Config
 from .db import Event
 from .db import Manifest
 from .db import Rcvfrom
@@ -21,8 +43,9 @@ from .db import Tag
 from .db import User
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Generator
     from typing import Any
+
+    from .export import ProjectExporter
 
 UTC = dt.timezone.utc
 
@@ -50,27 +73,40 @@ class ProjectManager:
         self.rcvfrom: Rcvfrom | None = None
         """If set, indicated the current "transaction" in progress."""
 
-        db, user = self._init_db(
-            cache_dir or pathlib.Path(".").resolve(),
-            username or os.environ.get("USER", "awdur"),
-        )
-        self.db: sqlite3.Connection = db
-        self.user: User = user
+        self.dbpath: pathlib.Path = (
+            cache_dir or pathlib.Path(".").resolve()
+        ) / f"awdur.fossil"
+        """The path to the awdur database."""
 
-    def _init_db(
-        self, cache_dir: pathlib.Path, username: str
-    ) -> tuple[sqlite3.Connection, User]:
-        # TODO: Can we come up with a better name?
-        dbpath = cache_dir / f"awdur.fossil"
+        self.db: sqlite3.Connection | None = None
+        """The connection to the database, if it's currenly open."""
 
-        existing_db = dbpath.exists()
-        db = sqlite3.connect(dbpath)
+        self.user: User = self._init_db(username or os.environ.get("USER", "awdur"))
+        """The user account to use."""
+
+    def _init_db(self, username: str) -> User:
+        """Initialize the db if needed and return the user's account record."""
+
+        existing_db = self.dbpath.exists()
+        self.logger.debug("Connecting to %r", self.dbpath.as_uri())
+        db = sqlite3.connect(self.dbpath)
 
         if existing_db:
             # TODO: Validate db structure.
             pass
         else:
             _ = db.executescript(SCHEMA.read_text())
+
+            for conf in [
+                Config("aux-schema", "2015-01-24"),
+                Config("content-schema", "2"),
+                Config("hash-policy", "2"),
+                Config("project-code", gen_project_code()),
+                Config("server-code", value=gen_server_code()),
+            ]:
+                _ = conf.insert(db)
+
+            db.commit()
 
         if (user := User.find(db, login=username)) is None:
             user = User(
@@ -79,17 +115,34 @@ class ProjectManager:
                 info=username,
                 mtime=dt.datetime.now(tz=UTC),
             ).insert(db)
+            db.commit()
 
-        db.commit()
-        return db, user
+        # Release the connection
+        db.close()
+        return user
 
-    def get_blob(self, uuid: str) -> Blob | None:
-        """Return the blob with the given id, returns ``None`` if not found."""
-        cursor = self.db.execute("SELECT * FROM blob WHERE uuid = ?", (uuid,))
-        if (row := cursor.fetchone()) is None:
-            return None
+    @contextmanager
+    def dbcon(self):
+        """A context manager for accessing the database connection.
 
-        return Blob.fromdb(*row)
+        If we currently have a long-lived connection (i.e. self.db is set) use that.
+        Otherwise create an ad-hoc connection that only lives as long as the context
+        manager.
+        """
+        if self.db is None:
+            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
+            db = sqlite3.connect(self.dbpath)
+
+            yield db
+
+            self.logger.debug("Closing connection to %r", self.dbpath.as_uri())
+            db.close()
+        else:
+            yield self.db
+
+    @property
+    def updating(self) -> bool:
+        return self.manifest is not None and self.rcvfrom is not None
 
     def add_src(self, src: str, filename: str) -> Blob | None:
         """Add a src file.
@@ -136,7 +189,7 @@ class ProjectManager:
         index
            The index at which the fragment should be inserted
         """
-        if not self.updating:
+        if self.manifest is None:
             raise RuntimeError("Unable to add code fragment, update not in progress")
 
         prefix = f"project/{project}/file/{filename}/{slot}/{revision}/"
@@ -167,15 +220,29 @@ class ProjectManager:
         fpath = f"project/{project}/template/{name}"
         return self._add_blob(fpath, content)
 
+    def get_blob(self, uuid: str) -> Blob | None:
+        """Return the blob with the given uuid, if known"""
+        if self.db is None:
+            db = sqlite3.connect(self.dbpath)
+        else:
+            db = self.db
+
+        blob = Blob.find(db, uuid=uuid)
+
+        if self.db is None:
+            db.close()
+
+        return blob
+
     def _add_blob(self, fpath: str, content: str):
         """Add the given blob to the project"""
-        if self.manifest is None or self.rcvfrom is None:
+        if self.manifest is None or self.rcvfrom is None or self.db is None:
             raise RuntimeError("Unable to add blob to project, update not in progress")
 
         blob = Blob.create(content, self.rcvfrom.rcvid)
 
         # we may have already recorded this blob
-        if (existing := self.get_blob(blob.uuid)) is not None:
+        if (existing := Blob.find(self.db, uuid=blob.uuid)) is not None:
             self.logger.debug("F %s %r, up to date.", fpath, existing)
             return
 
@@ -185,22 +252,23 @@ class ProjectManager:
         self.manifest.add_file(pathlib.Path(fpath), blob)
         return updated
 
-    @property
-    def updating(self) -> bool:
-        """Returns ``True`` if the project is in the middle of an update."""
-        return self.manifest is not None and self.rcvfrom is not None
-
     def start_update(self, comment: str, date: dt.datetime | None = None):
         """Start a new project update."""
-        if self.updating:
+
+        if self.manifest is not None or self.rcvfrom is not None:
             self.abort_update()
             raise RuntimeError(
                 "Unable to start project update, update already in progress"
             )
 
+        if self.db is None:
+            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
+            self.db = sqlite3.connect(self.dbpath)
+
         now = date or dt.datetime.now(tz=UTC)
 
         # Create the manifest
+        # TODO: This cannot work now that we're rendering projects into the same db!
         if (event := Event.find_latest(self.db)) is None:
             self.manifest = Manifest(
                 comment=comment,
@@ -230,20 +298,29 @@ class ProjectManager:
 
     def abort_update(self):
         """Abort the update."""
-        self.logger.debug("Aborting update...")
-        self.db.rollback()
+        self.logger.debug("Aborting update")
+
+        if self.db is not None:
+            self.db.rollback()
+            self.db.close()
+            self.db = None
+
         self.manifest = None
+        self.rcvfrom = None
 
     def commit_update(self):
         """Commit changes to the db."""
 
-        # Assume no manifest => no changes
-        if not self.updating:
-            self.logger.warning(
-                "Commit called outside of an update, rolling back db..."
-            )
-            self.db.rollback()  # to be safe
+        if self.manifest is None or self.rcvfrom is None:
+            self.logger.warning("Commit called outside of an update, rolling back db")
+            if self.db is not None:
+                self.db.rollback()  # to be safe
+                self.db.close()
+                self.db = None
             return
+
+        if self.db is None:
+            raise RuntimeError("Unable to commit update, no db connection")
 
         # Add the manifest.
         blob = self.manifest.toblob(self.rcvfrom.rcvid).insert(self.db)
@@ -259,17 +336,22 @@ class ProjectManager:
         self.logger.debug("%r", event)
 
         self.db.commit()
+        self.db.close()
+        self.db = None
+
         self.manifest = None
         self.rcvfrom = None
         self.logger.debug("Update complete.")
 
-    def export(
-        self, project: str, exporter: type[ProjectExporter], output: pathlib.Path
-    ):
+    def export(self, project: str, exporter: ProjectExporter, output: pathlib.Path):
         """Export the given project using the given exporter."""
 
-        if self.updating:
+        if self.manifest is not None or self.rcvfrom is not None:
             raise RuntimeError("Cannot export a project while updating.")
+
+        if self.db is None:
+            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
+            self.db = sqlite3.connect(self.dbpath)
 
         if (event := Event.find_latest(self.db)) is None:
             raise RuntimeError("Unable to export project, no project's defined!")
@@ -280,8 +362,47 @@ class ProjectManager:
             )
 
         manifest = Manifest.fromblob(mblob)
+        self.render_project(project, manifest)
+
+        exporter.export(project, self, output)
+
+    def get_project_version(
+        self, project: str, revision: str | None = None
+    ) -> str | None:
+        """Get the uuid of the manifest representing the given project at the given
+        revision.
+
+        Parameters
+        ----------
+        project
+           The name of the project
+
+        revision
+           The project's revision.
+           If ``None``, return the latest revision.
+        """
+        with self.dbcon() as db:
+            cursor = db.execute(
+                "SELECT uuid FROM awdur_revisions "
+                "WHERE project = ? AND rev LIKE ? "
+                "ORDER BY rev DESC LIMIT 1",
+                (project, revision or "%"),
+            )
+            return cursor.fetchone()[0]
+
+    def render_project(self, project: str, manifest: Manifest):
+        """Render a project's code from the given manifest."""
+
+        if self.manifest is not None or self.rcvfrom is not None:
+            raise RuntimeError("Cannot render a project while updating.")
+
+        if self.db is None:
+            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
+            self.db = sqlite3.connect(self.dbpath)
+
         env = Environment(loader=ProjectTemplateLoader(project, manifest, self.db))
-        timeline = self.get_project_timeline(manifest, project)
+        timeline = get_project_timeline(manifest, project)
+        self.logger.debug("Timeline: %s", timeline)
 
         project_manifest: Manifest | None = None
 
@@ -299,7 +420,7 @@ class ProjectManager:
                     tags=[
                         Tag("*", "branch", "*", project),
                         Tag("*", f"sym-{project}", "*"),
-                        Tag("*", "source", "*", mblob.uuid),
+                        Tag("*", "source", "*", manifest.uuid),
                     ],
                 )
             else:
@@ -312,9 +433,9 @@ class ProjectManager:
             for filename, slotblobs in fileset.items():
                 context: dict[str, Any] = {
                     "output": {"path": filename},
-                    "slots": self.resolve_file_content(slotblobs),
+                    "slots": resolve_file_content(self.db, slotblobs),
                 }
-                insert_fn = self.make_code_inserter(context)
+                insert_fn = make_code_inserter(context)
 
                 template = env.get_template("default")
                 content = template.render(**context, insert=insert_fn)
@@ -334,64 +455,79 @@ class ProjectManager:
             self.logger.debug("Manifest: %r\n%s", blob, blob.text)
             self.db.commit()
 
-    def get_project_timeline(self, manifest: Manifest, project_name: str):
-        """Given a manifest, return the timeline of all files and their revisions"""
+        self.db.close()
+        self.db = None
+        self.rebuild_metadata()
 
-        timeline: dict[str, dict[str, dict[str, list[str]]]] = {}
-        prefix = f"project/{project_name}/file/"
-        for path, uuid in (
-            (p.removeprefix(prefix), b.blob.uuid)
-            for p, b in manifest.files.items()
-            if p.startswith(prefix)
-        ):
-            *parts, slot, revision, idx = path.split("/")
-            filename = "/".join(parts)
-            rev = timeline.setdefault(revision, {})
+    def rebuild_metadata(self):
+        """Call out to fossil to rebuild the metadata tables."""
 
-            slots = rev.setdefault(filename, {})
-            # TODO: Handle block ordering
-            slots.setdefault(slot, []).append(uuid)
+        # The majority of the fossil db can be derived from the sequence of artifacts.
+        # Rather than attempt to keep up with implementation details of the tool, just
+        # run the command provided for this purpose
+        self.logger.info("Rebuilding metadata...")
+        result = subprocess.run(["fossil", "rebuild", "--stats", str(self.dbpath)])
 
-        self.logger.debug("Timeline: %s", timeline)
-        return timeline
 
-    def resolve_file_content(self, slotblobs: dict[str, list[str]]):
-        """Resolve all the uuid references in the file's content."""
-        slots: dict[str, list[str]] = {}
+def get_project_timeline(manifest: Manifest, project_name: str):
+    """Given a manifest, return the timeline of all files and their revisions"""
 
-        for slotname, uuids in slotblobs.items():
-            for uuid in uuids:
-                if (blob := Blob.find(self.db, uuid=uuid)) is None:
-                    raise RuntimeError(f"Unable resolve blob {uuid!r}")
+    timeline: dict[str, dict[str, dict[str, list[str]]]] = {}
+    prefix = f"project/{project_name}/file/"
+    for path, uuid in (
+        (p.removeprefix(prefix), b.blob.uuid)
+        for p, b in manifest.files.items()
+        if p.startswith(prefix)
+    ):
+        *parts, slot, revision, idx = path.split("/")
+        filename = "/".join(parts)
+        rev = timeline.setdefault(revision, {})
 
-                slots.setdefault(slotname, []).append(blob.text)
+        slots = rev.setdefault(filename, {})
+        # TODO: Handle block ordering
+        slots.setdefault(slot, []).append(uuid)
 
-        return slots
+    return timeline
 
-    def make_code_inserter(self, context):
-        """Return the implementation of the 'insert' function to use."""
 
-        def insert(
-            lines: list[str], indent: int | str | None = None, indentchar: str = " "
-        ) -> str:
-            """Insert code into the file."""
-            code = "\n\n".join(lines)
+def resolve_file_content(db: sqlite3.Connection, slotblobs: dict[str, list[str]]):
+    """Resolve all the uuid references in the file's content."""
+    slots: dict[str, list[str]] = {}
 
-            # Treat the code as a template so we can expand nested substitutions
-            # - is this a horrible idea??
-            t = Template(code)
-            code = t.render(**context, insert=insert)
+    for slotname, uuids in slotblobs.items():
+        for uuid in uuids:
+            if (blob := Blob.find(db, uuid=uuid)) is None:
+                raise RuntimeError(f"Unable resolve blob {uuid!r}")
 
-            # Handle indentation
-            if isinstance(indent, int):
-                indent = indent * indentchar
+            slots.setdefault(slotname, []).append(blob.text)
 
-            if indent:
-                code = textwrap.indent(code, indent)
+    return slots
 
-            return code
 
-        return insert
+def make_code_inserter(context):
+    """Return the implementation of the 'insert' function to use."""
+
+    def insert(
+        lines: list[str], indent: int | str | None = None, indentchar: str = " "
+    ) -> str:
+        """Insert code into the file."""
+        code = "\n\n".join(lines)
+
+        # Treat the code as a template so we can expand nested substitutions
+        # - is this a horrible idea??
+        t = Template(code)
+        code = t.render(**context, insert=insert)
+
+        # Handle indentation
+        if isinstance(indent, int):
+            indent = indent * indentchar
+
+        if indent:
+            code = textwrap.indent(code, indent)
+
+        return code
+
+    return insert
 
 
 DEFAULT_TEMPLATE = """\
@@ -435,3 +571,12 @@ class ProjectTemplateLoader(BaseLoader):
 
         self._templates[template] = tmpl = (blob.text, None, None)
         return tmpl
+
+
+def gen_code_from_uuid():
+    # Use uuid4 to get a random data, hash it to get a value compatible with fossil's
+    return hashlib.sha3_256(str(uuid.uuid4()).encode()).hexdigest()[:20]
+
+
+gen_project_code = gen_code_from_uuid
+gen_server_code = gen_code_from_uuid

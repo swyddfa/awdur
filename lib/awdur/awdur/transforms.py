@@ -9,7 +9,6 @@ from docutils.transforms import Transform
 from awdur.directives import code_block
 from awdur.directives import project_tree
 from awdur.project import Blob
-from awdur.project import HtmlExporter
 from awdur.project import ProjectManager
 
 if typing.TYPE_CHECKING:
@@ -91,7 +90,6 @@ class UpdateProjectTransform(Transform):
             manager.logger.debug("Source file %r up to date, nothing to do.", filename)
             return
 
-        # TODO: need to rethink this for the Sphinx use case.
         if not manager.updating:
             manager.start_update(f"Updated {filename}")
 
@@ -146,17 +144,17 @@ class ProjectBrowserTransform(Transform):
             # masty it makes debugging issues in the future.
             return
 
-        html = HtmlExporter(logger=manager.logger)
+        # html = HtmlExporter(logger=manager.logger)
 
-        for node in self.document.findall(condition=project_tree):
-            project_name = node["name"]
-            project: ProjectManager = manager[project_name]
+        # for node in self.document.findall(condition=project_tree):
+        #     project_name = node["name"]
+        #     project: ProjectManager = manager[project_name]
 
-            content = html.render(project)
-            tree = nodes.raw("", content, format="html")
+        #     content = html.render(project)
+        #     tree = nodes.raw("", content, format="html")
 
-            parent = node.parent
-            idx = parent.children.index(node)
-            parent.children.remove(node)
+        #     parent = node.parent
+        #     idx = parent.children.index(node)
+        #     parent.children.remove(node)
 
-            parent.children.insert(idx, tree)
+        #     parent.children.insert(idx, tree)

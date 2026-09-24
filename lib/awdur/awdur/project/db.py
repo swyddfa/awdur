@@ -120,6 +120,29 @@ class Blob:
 
 
 @typing.final
+@dataclasses.dataclass
+class Config:
+    """Represents a record in the ``config`` table."""
+
+    name: str
+    value: str
+    mtime: dt.datetime = dataclasses.field(
+        default_factory=lambda: dt.datetime.now(tz=UTC)
+    )
+
+    @classmethod
+    def fromdb(cls, name: str, value: str, mtime: int):
+        return cls(name, value, dt.datetime.fromtimestamp(mtime))
+
+    def insert(self, db: sqlite3.Connection):
+        cursor = db.execute(
+            "INSERT INTO config(name,value,mtime) VALUES (?,?,?) RETURNING *",
+            (self.name, self.value, int(self.mtime.timestamp())),
+        )
+        return Config.fromdb(*cursor.fetchone())
+
+
+@typing.final
 class Event:
     """Represents a record the ``event`` table."""
 
@@ -462,7 +485,8 @@ class Rcvfrom:
     def insert(self, db: sqlite3.Connection):
         """Insert into the database."""
         cursor = db.execute(
-            "INSERT INTO rcvfrom(uid,mtime,nonce,ipaddr) VALUES (?,?,?,?) "
+            "INSERT INTO rcvfrom(uid,mtime,nonce,ipaddr) "
+            "VALUES (?,julianday(?, 'unixepoch'),?,?) "
             "RETURNING rcvid,uid,strftime('%FT%TZ', mtime, 'unixepoch'),nonce,ipaddr",
             (self.uid, self.mtime.timestamp(), self.nonce, self.ipaddr),
         )

@@ -1,15 +1,5 @@
 """Export a project to a fossil source repo.
 
-.. seealso::
-
-   `src/schema.c <https://fossil-scm.org/home/file?name=src%2Fschema.c>`__
-      The code defining the structure of the database
-
-   `Fossil File Format <https://fossil-scm.org/home/doc/trunk/www/fileformat.wiki>`__
-      Defines the structure of each of the main db records, manifest, tickets, etc.
-
-   `Fossil is not Relational <https://fossil-scm.org/home/doc/trunk/www/fossil-is-not-relational.md>`__
-      Notes on the overall data model.
 """
 
 from __future__ import annotations
@@ -47,55 +37,6 @@ class FossilExporter:
         self.username = "awdur"
         self.users = {}
 
-    def export(self, project: ProjectManager, output: pathlib.Path):
-        dbpath = output.with_suffix(".fossil")
-        if dbpath.exists():
-            raise RuntimeError(
-                f"File {str(dbpath)!r} already exists and incremental exports are not "
-                "supported please delete the existing file or choose another filepath"
-            )
-
-        self.logger.info("Initialising database...")
-        db, checkin = self.init_db(dbpath)
-
-        self.logger.info("Writing artifacts...")
-        env = Environment(loader=project.templates)
-
-        now = datetime.now(tz=UTC)
-        user = self.users[self.username]
-        manifest = Manifest(
-            comment=f"Export files from {project.name}",
-            date=now,
-            user=user.login,
-            previous=[checkin],
-        )
-        rcvid = 2
-
-        # Update rcvfrom
-        _ = db.execute(
-            "INSERT INTO rcvfrom(rcvid,uid,mtime) VALUES (?,?,julianday(?, 'unixepoch'))",
-            (rcvid, user.uid, now.timestamp()),
-        )
-
-        for filename, file in project.iter_files():
-            content = self.render_file(env, filename, file)
-            blob = Blob.create(content, rcvid).insert(db)
-            self.logger.debug("Blob: %s %s %s bytes", blob.uuid, filename, blob.size)
-            manifest.add_file(filename, blob)
-
-        blob = Blob.create(manifest.build(), rcvid).insert(db)
-        db.commit()
-        db.close()
-
-        # The majority of the fossil db can be derived from the sequence of artifacts.
-        # Rather than attempt to keep up with implementation details of the tool, just
-        # run the command provided for this purpose
-        self.logger.info("Rebuilding metadata...")
-        result = subprocess.run(
-            ["fossil", "rebuild", "--stats", str(dbpath)], capture_output=True
-        )
-        if result.returncode == 0:
-            self.logger.info(result.stdout.decode("utf8"))
 
     def init_db(self, dbpath: pathlib.Path) -> tuple[sqlite3.Connection, Blob]:
         """Initialize the db ready for writing.
@@ -123,15 +64,7 @@ class FossilExporter:
 
         # Without some user accounts ``fossil ui`` will not show anything.
         self.users = {
-            u.login: u.insert(db)
-            for u in [
-                # TODO: generate an admin account with default password
-                User(self.username, pw="", cap="s", info=self.username, mtime=now),
-                User("anonymous", pw="", cap="hz", info="Anon", mtime=now),
-                User("nobody", pw="", cap="gjorz", info="Noobdy", mtime=now),
-                User("developer", pw="", cap="ei", info="Dev", mtime=now),
-                User("reader", pw="", cap="kptw", info="Reader", mtime=now),
-            ]
+            u.login:
         }
         user = self.users[self.username]
 
