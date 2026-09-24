@@ -1,7 +1,4 @@
--- Fossil database schema
---
--- Provides the schema for the main *.fossil project repo.
---
+-- Below is the Fossil database schema
 -- see: https://fossil-scm.org/home/file?&name=src%252Fschema.c
 
 CREATE TABLE blob(
@@ -237,3 +234,32 @@ CREATE VIEW artifact(
   content
 ) AS SELECT blob.rid,rcvid,size,1,srcid,uuid,content
 FROM blob LEFT JOIN delta ON (blob.rid=delta.rid);
+
+-- Awdur specific views and tables.
+--
+-- Manifest entries representing rendered project revisions should have
+-- at least two properties assigned:
+--
+-- T *branch uuid <project name>
+-- T +rev    uuid <revision>
+--
+-- Using fossil's tag assignment metadata tables, this constructs a
+-- view that gives us a revision timeline for each project.
+CREATE VIEW awdur_revisions AS
+  WITH props AS (
+    SELECT
+      tag.tagname,
+      tagxref.value,
+      tagxref.rid
+    FROM tag LEFT JOIN tagxref
+    ON tag.tagid = tagxref.tagid
+    WHERE tagxref.value IS NOT NULL
+  )
+
+  SELECT
+    blob.uuid,
+    max(CASE WHEN tagname = 'branch' THEN VALUE END) AS project,
+    max(CASE WHEN tagname = 'rev' THEN VALUE END) AS rev
+  FROM props LEFT JOIN blob
+  ON blob.rid = props.rid
+  GROUP BY props.rid;

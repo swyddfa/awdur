@@ -14,9 +14,6 @@ from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
 
 from awdur.project import DirectoryExporter
-from awdur.project import FossilExporter
-
-# from awdur.project import ProjectExporter
 from awdur.project import ProjectManager
 from awdur.writers import SourceCodeWriter
 
@@ -24,10 +21,11 @@ if typing.TYPE_CHECKING:
     import argparse
     from typing import Literal
 
+    from awdur.project.export import ProjectExporter
 
-EXPORTERS: dict[str, "ProjectExporter"] = {
+
+EXPORTERS: dict[str, type[ProjectExporter]] = {
     "directory": DirectoryExporter,
-    "fossil": FossilExporter,
 }
 
 
@@ -46,7 +44,7 @@ def extract(
     *,
     logger: logging.Logger | None = None,
     output: pathlib.Path | None = None,
-    format: Literal["directory", "fossil"] = "directory",
+    format: Literal["directory"] = "directory",
     project_name: str = "default",
 ):
     """Extract source code from documentation sources.
@@ -105,7 +103,7 @@ def extract(
             raise ValueError("Please provide a destination")
 
     exporter = EXPORTERS[format]
-    manager.export(project_name, exporter, output)
+    manager.export(project_name, exporter(logger=logger), output)
 
 
 def register_extract(subcommands: argparse._SubParsersAction):
@@ -124,7 +122,7 @@ def register_extract(subcommands: argparse._SubParsersAction):
     _ = extract_cmd.add_argument(
         "-f",
         "--format",
-        choices=("directory", "fossil"),
+        choices=("directory"),
         default="directory",
         help="the format to export the project in",
     )
