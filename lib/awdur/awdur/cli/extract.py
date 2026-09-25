@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import pathlib
 import typing
 
-import platformdirs
 from docutils import io
 from docutils import nodes
 from docutils.core import Publisher
@@ -23,6 +21,7 @@ if typing.TYPE_CHECKING:
 
     from awdur.project.export import ProjectExporter
 
+    from ._core import Context
 
 EXPORTERS: dict[str, type[ProjectExporter]] = {
     "directory": DirectoryExporter,
@@ -32,7 +31,6 @@ EXPORTERS: dict[str, type[ProjectExporter]] = {
 class RstParser(get_parser_class("restructuredtext")):
     """Our version of the restructuredtext parser to use."""
 
-    @typing.override
     def setup_parse(self, inputstring: str, document: nodes.document) -> None:
         # Pass the raw source to the document
         document.rawsource = inputstring
@@ -40,9 +38,9 @@ class RstParser(get_parser_class("restructuredtext")):
 
 
 def extract(
+    context: Context,
     source: pathlib.Path,
     *,
-    logger: logging.Logger | None = None,
     output: pathlib.Path | None = None,
     format: Literal["directory"] = "directory",
     project_name: str = "default",
@@ -51,11 +49,11 @@ def extract(
 
     Parameters
     ----------
+    context
+       The context object
+
     source
        The source file to extract code from
-
-    logger
-       The logging instance to use.
 
     output
        The location to write to
@@ -78,7 +76,10 @@ def extract(
         source_class=io.FileInput,
     )
 
-    manager = ProjectManager(cache_dir=get_cache_dir(source), logger=logger)
+    manager = ProjectManager(
+        data_dir=get_project_dir(context.data_dir, source),
+        logger=context.logger,
+    )
     publisher.process_programmatic_settings(
         settings_spec=None,
         settings_overrides={"awdur_project_manager": manager},
@@ -103,7 +104,7 @@ def extract(
             raise ValueError("Please provide a destination")
 
     exporter = EXPORTERS[format]
-    manager.export(project_name, exporter(logger=logger), output)
+    manager.export(project_name, exporter(logger=context.logger), output)
 
 
 def register_extract(subcommands: argparse._SubParsersAction):
@@ -131,11 +132,10 @@ def register_extract(subcommands: argparse._SubParsersAction):
     )
 
 
-def get_cache_dir(source: pathlib.Path):
-    """Return the cache dir corresponding with this path."""
+def get_project_dir(data_dir: pathlib.Path, source: pathlib.Path):
+    """Return the project data dir corresponding with this path."""
 
-    cache = platformdirs.user_data_dir("awdur", appauthor="swyddfa", ensure_exists=True)
-    index_json = pathlib.Path(cache, "index.json")
+    index_json = pathlib.Path(data_dir, "index.json")
 
     if not index_json.exists():
         index = {}
@@ -147,7 +147,7 @@ def get_cache_dir(source: pathlib.Path):
         return pathlib.Path(index[uri])
 
     hash = hashlib.md5(uri.encode())
-    cache_dir = pathlib.Path(cache, hash.hexdigest())
+    cache_dir = pathlib.Path(data_dir, hash.hexdigest())
     cache_dir.mkdir(parents=True)
 
     index[uri] = str(cache_dir)

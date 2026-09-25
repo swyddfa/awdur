@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import bdb
+import dataclasses
 import inspect
 import logging
 import pathlib
 import sys
 import typing
 
+import platformdirs
 from docutils.parsers.rst import directives
 from docutils.parsers.rst.directives.body import CodeBlock
 
@@ -25,6 +27,30 @@ if typing.TYPE_CHECKING:
     from typing import TypeVar
 
     T = TypeVar("T")
+
+
+@dataclasses.dataclass
+class Context:
+    """A place to store general utility values."""
+
+    logger: logging.Logger
+    """The logger instance to use."""
+
+    data_dir: pathlib.Path
+    """The path at which to store persistent data."""
+
+    @classmethod
+    def fromargs(cls, args: dict[str, Any]):
+        if (data_dir := args.get("data_dir")) is None:
+            data_dir = pathlib.Path(
+                platformdirs.user_data_dir(
+                    "awdur", appauthor="swyddfa", ensure_exists=True
+                )
+            )
+        elif not data_dir.exists():
+            data_dir.mkdir(parents=True)
+
+        return cls(logger=setup_logging(args.get("verbosity", 0)), data_dir=data_dir)
 
 
 def call(fn: Callable[..., T], args: dict[str, Any]) -> T:
@@ -65,6 +91,13 @@ def get_parser() -> argparse.ArgumentParser:
         dest="verbosity",
         default=0,
         help="increase logging verbosity",
+    )
+
+    _ = parser.add_argument(
+        "--data-dir",
+        default=None,
+        type=pathlib.Path,
+        help="override the directory used to store persistent data",
     )
 
     subcommands = parser.add_subparsers(title="commands")
@@ -113,7 +146,7 @@ def main(argv: Sequence[str] | None = None):
     arguments = vars(args)
     command: Callable[..., Any] = arguments.pop("run")
 
-    arguments["logger"] = logger = call(setup_logging, arguments)
+    arguments["context"] = context = Context.fromargs(arguments)
 
     register_directives()
 
@@ -123,7 +156,7 @@ def main(argv: Sequence[str] | None = None):
         # Don't debug exiting from the debugger.
         pass
     except Exception as exc:
-        logger.error("%s", exc)
+        context.logger.error("%s", exc)
 
         if arguments.get("debug", False):
             import pdb

@@ -58,7 +58,7 @@ class ProjectManager:
     def __init__(
         self,
         *,
-        cache_dir: pathlib.Path | None = None,
+        data_dir: pathlib.Path | None = None,
         logger: logging.Logger | None = None,
         username: str | None = None,
     ):
@@ -74,7 +74,7 @@ class ProjectManager:
         """If set, indicated the current "transaction" in progress."""
 
         self.dbpath: pathlib.Path = (
-            cache_dir or pathlib.Path(".").resolve()
+            data_dir or pathlib.Path(".").resolve()
         ) / f"awdur.fossil"
         """The path to the awdur database."""
 
