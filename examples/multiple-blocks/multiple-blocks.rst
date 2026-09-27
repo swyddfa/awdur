@@ -5,16 +5,18 @@ Multiple Blocks
 Say we were writing a program involving triangles, we might first write a function to calculate the perimeter
 
 .. code:: python
+   :in-file: multiple-blocks.py
 
-  def perimeter(a, b, c):
-      return a + b + c
+   def perimeter(a, b, c):
+       return a + b + c
 
 We might then also write a function to calculate the area
 
 .. code:: python
+   :in-file: multiple-blocks.py
 
-  def area(a, b, c):
-      return 0.5 * a * b
+   def area(a, b, c):
+       return 0.5 * a * b
 
 Since this is a documentation file, we can make clear the assumptions the above function makes.
 
@@ -26,11 +28,12 @@ Since this is a documentation file, we can make clear the assumptions the above 
 Finally, we may bring this all together into a simple program
 
 .. code:: python
+   :in-file: multiple-blocks.py
 
-  a, b, c = 3, 4, 5
-  P = perimeter(a, b, c)
-  A = area(a, b, c)
+   a, b, c = 3, 4, 5
+   P = perimeter(a, b, c)
+   A = area(a, b, c)
 
-  print(f"A triangle with sides {a=}, {b=}, {c=} has")
-  print(f"- Perimeter, {P=}")
-  print(f"- Area, {A=}")
+   print(f"A triangle with sides {a=}, {b=}, {c=} has")
+   print(f"- Perimeter, {P=}")
+   print(f"- Area, {A=}")

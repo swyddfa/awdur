@@ -17,7 +17,10 @@ Awdur's project representation is built on top of the fossil file format.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
+import fnmatch
+import functools
 import hashlib
 import logging
 import os
@@ -27,6 +30,7 @@ import subprocess
 import textwrap
 import typing
 import uuid
+from collections import defaultdict
 from contextlib import contextmanager
 
 from jinja2 import BaseLoader
@@ -143,6 +147,43 @@ class ProjectManager:
     @property
     def updating(self) -> bool:
         return self.manifest is not None and self.rcvfrom is not None
+
+    def set_file_properties(
+        self,
+        filename: str,
+        project: str,
+        template: str | None = None,
+        revision: str = "1",
+    ) -> Blob | None:
+        """Set additional properties for the given filename.
+
+        Filename can be a glob-style pattern
+
+        Parameters
+        ----------
+        filename
+           An exact filename, or a filename glob pattern to apply the properties to
+
+        project
+           The project name
+
+        template
+           If set, use the given template name
+
+        revision
+           The revision at which the settings apply.
+        """
+        lines: list[str] = []
+        if template is not None:
+            lines.append(f"template: {template}")
+
+        if (content := "\n".join(lines)) == "":
+            # Nothing to do
+            return None
+
+        # If given an exact filename, then we can set the properties directly.
+        fpath = f"project/{project}/setting/{filename}/{revision}"
+        return self._add_blob(fpath, content)
 
     def add_src(self, src: str, filename: str) -> Blob | None:
         """Add a src file.
@@ -401,12 +442,12 @@ class ProjectManager:
             self.db = sqlite3.connect(self.dbpath)
 
         env = Environment(loader=ProjectTemplateLoader(project, manifest, self.db))
-        timeline = get_project_timeline(manifest, project)
+        timeline = ProjectTimeline.from_manifest(manifest, project)
         self.logger.debug("Timeline: %s", timeline)
 
         project_manifest: Manifest | None = None
 
-        for rev, fileset in timeline.items():
+        for rev, fileset in timeline:
             self.logger.debug("Exporting revision: %r", rev)
             comment = f"Project export"
             date = dt.datetime.now(tz=UTC)
@@ -430,14 +471,15 @@ class ProjectManager:
 
             project_manifest.add_tag(Tag("+", "rev", "*", rev))
             rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(self.db)
-            for filename, slotblobs in fileset.items():
+            for filename, file in fileset:
+                slots, settings = file.resolve(self.db)
                 context: dict[str, Any] = {
-                    "output": {"path": filename},
-                    "slots": resolve_file_content(self.db, slotblobs),
+                    "output": {"path": pathlib.Path(filename)},
+                    "slots": slots,
                 }
                 insert_fn = make_code_inserter(context)
 
-                template = env.get_template("default")
+                template = env.get_template(settings.get("template", "default"))
                 content = template.render(**context, insert=insert_fn)
 
                 blob = Blob.create(content, rcvfrom.rcvid)
@@ -469,39 +511,126 @@ class ProjectManager:
         result = subprocess.run(["fossil", "rebuild", "--stats", str(self.dbpath)])
 
 
-def get_project_timeline(manifest: Manifest, project_name: str):
-    """Given a manifest, return the timeline of all files and their revisions"""
+@dataclasses.dataclass
+class ProjectFile:
+    """Represents a file"""
 
-    timeline: dict[str, dict[str, dict[str, list[str]]]] = {}
-    prefix = f"project/{project_name}/file/"
-    for path, uuid in (
-        (p.removeprefix(prefix), b.blob.uuid)
-        for p, b in manifest.files.items()
-        if p.startswith(prefix)
-    ):
-        *parts, slot, revision, idx = path.split("/")
-        filename = "/".join(parts)
-        rev = timeline.setdefault(revision, {})
+    slots: dict[str, list[str]] = dataclasses.field(
+        default_factory=functools.partial(defaultdict, list)
+    )
+    """A dictionary mapping content slot names to a list of blob uuids containing the
+    actual content."""
 
-        slots = rev.setdefault(filename, {})
-        # TODO: Handle block ordering
-        slots.setdefault(slot, []).append(uuid)
+    settings: list[str] = dataclasses.field(default_factory=list)
+    """A list of blob uuids containing settings to be applied."""
 
-    return timeline
+    def resolve(self, db: sqlite3.Connection):
+        """Resolve all uuid references and return the actual context."""
+        slots: dict[str, list[str]] = {}
 
+        for slotname, uuids in self.slots.items():
+            for uuid in uuids:
+                if (blob := Blob.find(db, uuid=uuid)) is None:
+                    raise RuntimeError(f"Unable resolve blob {uuid!r}")
 
-def resolve_file_content(db: sqlite3.Connection, slotblobs: dict[str, list[str]]):
-    """Resolve all the uuid references in the file's content."""
-    slots: dict[str, list[str]] = {}
+                slots.setdefault(slotname, []).append(blob.text)
 
-    for slotname, uuids in slotblobs.items():
-        for uuid in uuids:
+        settings: dict[str, str] = {}
+        # Settings should be sorted in priority order!
+        for uuid in self.settings:
             if (blob := Blob.find(db, uuid=uuid)) is None:
                 raise RuntimeError(f"Unable resolve blob {uuid!r}")
 
-            slots.setdefault(slotname, []).append(blob.text)
+            for line in blob.text.splitlines():
+                key, value = line.split(":")
+                settings[key.strip()] = value.strip()
 
-    return slots
+        return slots, settings
+
+
+@dataclasses.dataclass
+class ProjectFileSet:
+    """Represents a tree of files."""
+
+    files: dict[str, ProjectFile] = dataclasses.field(
+        default_factory=functools.partial(defaultdict, ProjectFile)
+    )
+
+    def __getitem__(self, key: str):
+        return self.files[key]
+
+    def __iter__(self):
+        yield from self.files.items()
+
+    def apply_settings(self, filename: str, blob: str):
+        """Apply settings to files matching the given filename pattern.
+
+        Parameters
+        ----------
+        filename
+           The file(s) to apply the settings to, can be either an extact filename or
+           a glob pattern.
+
+        blob
+           The uuid of the blob containing the settings to apply.
+        """
+        # TODO: Handle specificity
+        for fpath, file in self.files.items():
+            if fnmatch.fnmatch(fpath, filename):
+                file.settings.append(blob)
+
+
+@dataclasses.dataclass
+class ProjectTimeline:
+    """Represents the state of a project at each revision."""
+
+    revisions: dict[str, ProjectFileSet] = dataclasses.field(
+        default_factory=functools.partial(defaultdict, ProjectFileSet),
+    )
+    """The set of revisions in the timeline."""
+
+    def __getitem__(self, key: str):
+        return self.revisions[key]
+
+    def __iter__(self):
+        yield from self.revisions.items()
+
+    @classmethod
+    def from_manifest(cls, manifest: Manifest, project_name: str):
+        """Given a manifest, construct a project timeline."""
+
+        timeline = cls()
+
+        # First convert the manifest into a set of files at each revision.
+        prefix = f"project/{project_name}/file/"
+        for path, uuid in (
+            (p.removeprefix(prefix), b.blob.uuid)
+            for p, b in manifest.files.items()
+            if p.startswith(prefix)
+        ):
+            *parts, slot, revision, idx = path.split("/")
+            filename = "/".join(parts)
+            rev = timeline[revision]
+
+            file = rev[filename]
+            # TODO: Handle block ordering
+            file.slots[slot].append(uuid)
+
+        # Now map the settings to each file.
+        prefix = f"project/{project_name}/setting/"
+        for path, uuid in (
+            (p.removeprefix(prefix), b.blob.uuid)
+            for p, b in manifest.files.items()
+            if p.startswith(prefix)
+        ):
+            # TODO: This isn't quite right, need to handle propogation of settings to
+            #       later revisions.
+            *parts, revision = path.split("/")
+            filename = "/".join(parts)
+            rev = timeline[revision]
+            rev.apply_settings(filename, uuid)
+
+        return timeline
 
 
 def make_code_inserter(context):
@@ -533,7 +662,7 @@ def make_code_inserter(context):
 DEFAULT_TEMPLATE = """\
 {%- block header %}{%- endblock %}
 {%- block content %}{{ insert(slots.content) }}{%- endblock %}
-{%- block footer %}
+{% block footer %}
 {%- endblock %}
 """
 
@@ -575,7 +704,7 @@ class ProjectTemplateLoader(BaseLoader):
 
 def gen_code_from_uuid():
     # Use uuid4 to get a random data, hash it to get a value compatible with fossil's
-    return hashlib.sha3_256(str(uuid.uuid4()).encode()).hexdigest()[:20]
+    return hashlib.sha1(str(uuid.uuid4()).encode()).hexdigest()
 
 
 gen_project_code = gen_code_from_uuid

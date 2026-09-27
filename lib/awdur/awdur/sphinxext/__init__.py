@@ -13,7 +13,7 @@ from awdur import __version__
 from awdur.directives import code_block
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
-from awdur.directives import project_tree
+from awdur.directives import project
 from awdur.project import DirectoryExporter
 from awdur.project import ProjectManager
 from awdur.transforms import ProjectBrowserTransform
@@ -107,7 +107,7 @@ def depart_code_block(self, node):
 
 def setup(app: Sphinx):
     # Register custom nodes
-    app.add_node(project_tree, html=(no_op, no_op))
+    app.add_node(project, html=(no_op, no_op))
     app.add_node(code_block, html=(visit_code_block, depart_code_block))
 
     # Register custom directives

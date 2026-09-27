@@ -13,7 +13,8 @@ import platformdirs
 from docutils.parsers.rst import directives
 from docutils.parsers.rst.directives.body import CodeBlock
 
-from awdur.directives import ProjectTreeDirective
+from awdur.directives import FileDirective
+from awdur.directives import ProjectDirective
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 
@@ -75,7 +76,9 @@ def register_directives():
     template = define_template(CodeBlock)
 
     directives.register_directive("code", codeblock)
-    directives.register_directive("awdur:project-tree", ProjectTreeDirective)
+    directives.register_directive("awdur:file", FileDirective)
+    directives.register_directive("awdur:files", FileDirective)
+    directives.register_directive("awdur:project", ProjectDirective)
     directives.register_directive("awdur:template", template)
 
 
