@@ -16,7 +16,7 @@ from awdur.directives import define_template
 from awdur.directives import project
 from awdur.project import DirectoryExporter
 from awdur.project import ProjectManager
-from awdur.transforms import ProjectBrowserTransform
+from awdur.transforms import RenderProjectTransform
 from awdur.transforms import ResolveProjectMetadataTransform
 from awdur.transforms import UpdateProjectTransform
 
@@ -130,6 +130,6 @@ def setup(app: Sphinx):
     # Register custom transforms
     app.add_transform(ResolveProjectMetadataTransform)
     app.add_transform(UpdateProjectTransform)
-    app.add_post_transform(ProjectBrowserTransform)
+    app.add_post_transform(RenderProjectTransform)
 
     return {"version": __version__, "parallel_read_safe": True}

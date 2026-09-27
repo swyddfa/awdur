@@ -183,8 +183,9 @@ class UpdateProjectTransform(Transform):
                     )
 
 
-class ProjectBrowserTransform(Transform):
-    """Transform that converts the ``project_tree`` node into an actual project tree."""
+class RenderProjectTransform(Transform):
+    """Transform that converts ``project`` and ``file`` nodes into an something
+    that normal writers can process."""
 
     default_priority = UpdateProjectTransform.default_priority + 1
 
@@ -201,15 +202,20 @@ class ProjectBrowserTransform(Transform):
 
         # html = HtmlExporter(logger=manager.logger)
 
-        # for node in self.document.findall(condition=project_tree):
-        #     project_name = node["name"]
-        #     project: ProjectManager = manager[project_name]
+        for node in self.document.findall(condition=file):
+            parent = node.parent
+            idx = parent.children.index(node)
+            parent.children.remove(node)
 
-        #     content = html.render(project)
-        #     tree = nodes.raw("", content, format="html")
+        for node in self.document.findall(condition=project):
+            # project_name = node["name"]
+            # project: ProjectManager = manager[project_name]
 
-        #     parent = node.parent
-        #     idx = parent.children.index(node)
-        #     parent.children.remove(node)
+            # content = html.render(project)
+            # tree = nodes.raw("", content, format="html")
 
-        #     parent.children.insert(idx, tree)
+            parent = node.parent
+            idx = parent.children.index(node)
+            parent.children.remove(node)
+
+            # parent.children.insert(idx, tree)

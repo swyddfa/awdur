@@ -5,7 +5,7 @@ import typing
 from docutils.writers.html5_polyglot import HTMLTranslator as Translator
 from docutils.writers.html5_polyglot import Writer
 
-from awdur.transforms import ProjectBrowserTransform
+from awdur.transforms import RenderProjectTransform
 from awdur.transforms import ResolveProjectMetadataTransform
 from awdur.transforms import UpdateProjectTransform
 
@@ -24,7 +24,7 @@ class HTMLWriter(Writer):
         return super().get_transforms() + [
             ResolveProjectMetadataTransform,
             UpdateProjectTransform,
-            ProjectBrowserTransform,
+            RenderProjectTransform,
         ]
 
 
