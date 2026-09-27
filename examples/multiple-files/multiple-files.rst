@@ -10,7 +10,7 @@ Fibbonacci
 Below is a function to calculate the n\ :sup:`th` Fibonacci number
 
 .. code:: python
-   :filename: fib.py
+   :in-file: fib.py
 
    def fib(n):
        if n == 0 or n == 1:
@@ -20,7 +20,7 @@ Below is a function to calculate the n\ :sup:`th` Fibonacci number
 Which we can then use to print the first 10 Fibonacci numbers
 
 .. code:: python
-   :filename: fib.py
+   :in-file: fib.py
 
    nums = [str(fib(n)) for n in range(1, 11)]
    print(f"The first 10 Fibonacci numbers are: {', '.join(nums)}")
@@ -32,7 +32,7 @@ Square Numbers
 Here is a function for calculating the square of a number
 
 .. code:: python
-   :filename: square.py
+   :in-file: square.py
 
    def square(n):
        return n * n
@@ -40,7 +40,7 @@ Here is a function for calculating the square of a number
 Which we can then use to print the first 10 square numbers
 
 .. code:: python
-   :filename: square.py
+   :in-file: square.py
 
    nums = [str(square(n)) for n in range(1,11)]
    print(f"The first 10 square numbers are: {', '.join(nums)}")

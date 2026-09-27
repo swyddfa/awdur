@@ -2,7 +2,7 @@ Multiple Projects
 =================
 
 Awdur allows for multiple code projects to be embedded within a single documentation artifact.
-Where relevant awdur's directives accept a ``:project:`` option that allow you to specify which project it should be assoicated with.
+Where relevant awdur's directives accept an ``:in-project:`` option that allow you to specify which project it should be assoicated with.
 
 The ``awdur:project-tree`` directive accepts a project name as an argument.
 
@@ -11,12 +11,12 @@ Hello World
 
 Where no project name is given, the name ``default`` will be used as... well, the default.
 
-.. awdur:project-tree::
+.. awdur:project::
 
 The code below is a valid "Hello, World!" application in Python.
 
 .. code:: python
-   :filename: hello.py
+   :in-file: hello.py
 
    print("Hello, World!")
 
@@ -26,7 +26,15 @@ Shapes
 
 This project deals with geometric shapes
 
-.. awdur:project-tree:: shapes
+.. awdur:project:: shapes
+
+   .. awdur:files:: *.el
+      :use-template: elisp-module
+
+
+.. The below sets default metadata for this document section.
+
+:in-project: shapes
 
 Setup
 ^^^^^
@@ -34,7 +42,6 @@ Setup
 The following template is used when defining an elisp module in this project.
 
 .. awdur:template:: elisp-module
-   :project: shapes
 
    {% extends "default" %}
 
@@ -43,18 +50,18 @@ The following template is used when defining an elisp module in this project.
    {% endblock %}
 
    {% block footer %}
+   (provide '{{ output.path.stem }})
+   {% endblock %}
 
-   (provide '{{ output.path.stem }}){% endblock %}
 
 Triangles
 ^^^^^^^^^
 
+:in-file: triangle.el
+
 The code block below defines a function to compute the area of a triangle.
 
 .. code:: emacs-lisp
-   :project: shapes
-   :filename: triangle.el
-   :template: elisp-module
 
    (defun triangle-area (a b c)
      (* 0.5 a b))
@@ -62,8 +69,6 @@ The code block below defines a function to compute the area of a triangle.
 And this defines a function to compute the perimeter, note that now we've the template once we don't need to repeat it.
 
 .. code:: emacs-lisp
-   :project: shapes
-   :filename: triangle.el
 
    (defun triangle-perimeter (a b c)
      (+ a b c))
@@ -74,9 +79,7 @@ Rectangles
 The following code deals with rectangles.
 
 .. code:: emacs-lisp
-   :project: shapes
-   :filename: rectangle.el
-   :template: elisp-module
+   :in-file: rectangle.el
 
    (defun rectangle-area (w h)
      (* w h))
@@ -89,16 +92,18 @@ Math
 
 This project deals with number sequences
 
-.. awdur:project-tree:: math
+.. awdur:project:: math
+
+:in-project: math
 
 Fibbonacci
 ^^^^^^^^^^
 
+:in-file: fib.py
+
 Below is a function to calculate the n\ :sup:`th` Fibonacci number
 
 .. code:: python
-   :project: math
-   :filename: fib.py
 
    def fib(n):
        if n == 0 or n == 1:
@@ -108,8 +113,6 @@ Below is a function to calculate the n\ :sup:`th` Fibonacci number
 Which we can then use to print the first 10 Fibonacci numbers
 
 .. code:: python
-   :project: math
-   :filename: fib.py
 
    nums = [str(fib(n)) for n in range(1, 11)]
    print(f"The first 10 Fibonacci numbers are: {', '.join(nums)}")
@@ -118,11 +121,11 @@ Which we can then use to print the first 10 Fibonacci numbers
 Square Numbers
 ^^^^^^^^^^^^^^
 
+:in-file: square.py
+
 Here is a function for calculating the square of a number
 
 .. code:: python
-   :project: math
-   :filename: square.py
 
    def square(n):
        return n * n
@@ -130,8 +133,6 @@ Here is a function for calculating the square of a number
 Which we can then use to print the first 10 square numbers
 
 .. code:: python
-   :project: math
-   :filename: square.py
 
    nums = [str(square(n)) for n in range(1,11)]
    print(f"The first 10 square numbers are: {', '.join(nums)}")

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import contextlib
+import logging
 import typing
 
 from docutils import nodes
 from docutils.transforms import Transform
 
 from awdur.directives import code_block
-from awdur.directives import project_tree
+from awdur.directives import file
+from awdur.directives import project
 from awdur.project import Blob
 from awdur.project import ProjectManager
 
@@ -19,47 +20,78 @@ class CodeMetdataVisitor(nodes.SparseNodeVisitor):
     """Walk a doctree and fill in missing metadata fields based on the surrounding
     context."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        logger: logging.Logger | None = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        self.context: dict[str, str] = {}
-        self.found_projects: set[str] = set()
 
-    def visit_docinfo(self, node: nodes.docinfo):
-        """Set the context based on docinfo fields."""
+        self.logger = (logger or logging.getLogger(__name__)).getChild(
+            self.__class__.__name__
+        )
 
-        for field in node:
-            with contextlib.suppress(IndexError):
-                name = field[0].astext()
-                value = field[1].astext()
+        # Assume everything is in the default project, unless told otherwise
+        self.ctx_stack: list[dict[str, str]] = [
+            {"in-project": "default"},
+        ]
 
-                self.context[name] = value
+    @property
+    def context(self) -> dict[str, str]:
+        """Return a flattened context based on the current stack of contexts."""
+        ctx: dict[str, str] = {}
+        for vars in self.ctx_stack:
+            ctx.update(vars)
 
-    def visit_field_list(self, node: nodes.field_list):
-        """Set the context based on the current field list."""
-        for field in node:
-            with contextlib.suppress(IndexError):
-                name = field[0].astext()
-                value = field[1].astext()
+        return ctx
 
-                self.context[name] = value
+    def add_context(self, name: str, value: str):
+        """Add a value to the current context"""
+        self.ctx_stack[-1][name] = value
+
+    def visit_section(self, node: nodes.section):
+        """Each time we enter a section, push an empty context onto the stack"""
+        self.ctx_stack.append({})
+
+    def depart_section(self, node: nodes.section):
+        """Each time we depart a section, pop a context off the stack"""
+        _ = self.ctx_stack.pop()
+
+    def visit_field(self, node: nodes.field):
+        """Set the context based on fields."""
+
+        try:
+            name, value, *_ = node.children
+            self.add_context(name.astext(), value.astext())
+        except Exception:
+            self.logger.exception("Unable to set context")
 
     def visit_code_block(self, node: code_block):
         for name, value in self.context.items():
             if name not in node.attributes and name in code_block.user_attributes:
                 node.attributes[name] = value
 
-        project = node.attributes.get("project")
+    def visit_project(self, node: project) -> None:
+        """Project nodes define their own context scope."""
+        self.ctx_stack.append({"in-project": node["name"]})
 
-        # TODO: make this configurable
-        if project is None:
-            project = "default"
-            node.attributes["project"] = project
+    def depart_project(self, node: project):
+        _ = self.ctx_stack.pop()
 
-        # Note the project name
-        self.found_projects.add(project)
+    def visit_file(self, node: file) -> None:
+        """File nodes define their own context scope."""
 
-    def visit_project_tree(self, node: project_tree) -> None:
-        pass
+        # First apply the current content
+        for name, value in self.context.items():
+            if name not in node.attributes and name in file.user_attributes:
+                node.attributes[name] = value
+
+        # Then push the a new context defined by the file.
+        self.ctx_stack.append({**node.attributes})
+
+    def depart_file(self, node: file):
+        _ = self.ctx_stack.pop()
 
 
 class ResolveProjectMetadataTransform(Transform):
@@ -70,7 +102,6 @@ class ResolveProjectMetadataTransform(Transform):
     def apply(self):
         visitor = CodeMetdataVisitor(self.document)
         _ = self.document.walk(visitor)
-        self.document.attributes["projects"] = visitor.found_projects
 
 
 class UpdateProjectTransform(Transform):
@@ -95,8 +126,35 @@ class UpdateProjectTransform(Transform):
 
         _ = manager.add_src(src, filename)
 
+        self.update_files(manager)
+        self.update_codeblocks(manager)
+
+        # Be sure to commit changes!
+        # TODO: Probably need to rethink this in the Sphinx use case.
+        manager.commit_update()
+
+    def update_files(self, manager: ProjectManager):
+        """Update based on all the file nodes in the document."""
+
+        for node in self.document.findall(file):
+            filename = node["filename"]
+
+            if (project_name := node.attributes.get("in-project")) is None:
+                manager.logger.warning(
+                    "skipping file: %r, not part of any project: %r",
+                    filename,
+                    node.source,
+                )
+                continue
+
+            _ = manager.set_file_properties(
+                filename, project_name, template=node.attributes.get("use-template")
+            )
+
+    def update_codeblocks(self, manager: ProjectManager):
+        """Update based on all the code blocks in the document."""
         for node in self.document.findall(code_block):
-            if (project_name := node.attributes.get("project")) is None:
+            if (project_name := node.attributes.get("in-project")) is None:
                 manager.logger.debug(
                     "skipping code block, not part of any project\n%s", node.astext()
                 )
@@ -106,13 +164,14 @@ class UpdateProjectTransform(Transform):
 
             match node.attributes.get("kind"):
                 case "code":
-                    _ = manager.add_fragment(
-                        code,
-                        filename=node.attributes.get("filename", "<<default>>"),
-                        project=project_name,
-                        slot=node.attributes.get("slot", "content"),
-                        revision=node.attributes.get("revision", "1"),
-                    )
+                    if (filename := node.attributes.get("in-file")) is not None:
+                        _ = manager.add_fragment(
+                            code,
+                            filename=filename,
+                            project=project_name,
+                            slot=node.attributes.get("in-slot", "content"),
+                            revision=node.attributes.get("at-revision", "1"),
+                        )
 
                 case "template":
                     name = node.attributes["name"]
@@ -122,10 +181,6 @@ class UpdateProjectTransform(Transform):
                     manager.logger.warning(
                         "skipping code block, unknown kind %r\n%s", code
                     )
-
-        # Be sure to commit changes!
-        # TODO: Probably need to rethink this in the Sphinx use case.
-        manager.commit_update()
 
 
 class ProjectBrowserTransform(Transform):

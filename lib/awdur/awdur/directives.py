@@ -1,31 +1,13 @@
 from __future__ import annotations
 
+import typing
+
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from docutils.parsers.rst import directives
 
-
-class project_tree(nodes.General, nodes.Element):
-    """A marker node used to inject a browsable view of the project into a document."""
-
-
-class code_block(nodes.General, nodes.Element):
-    """A container for an awdur code block."""
-
-    user_attributes = (
-        "template",
-        "project",
-        "filename",
-        "slot",
-        "revision",
-    )
-
-    valid_attributes = (
-        # valid_attributes not present on all docutils versions
-        getattr(nodes.Element, "valid_attributes", tuple())
-        + user_attributes
-        + ("kind",)
-    )
+if typing.TYPE_CHECKING:
+    from typing import Any
 
 
 def define_codeblock(base: type[Directive]) -> type[Directive]:
@@ -62,6 +44,24 @@ def define_codeblock(base: type[Directive]) -> type[Directive]:
     )
 
 
+class code_block(nodes.General, nodes.Element):
+    """A container for an awdur code block."""
+
+    user_attributes: tuple[str, ...] = (
+        "in-project",
+        "in-file",
+        "in-slot",
+        "at-revision",
+    )
+
+    valid_attributes: tuple[str, ...] = (
+        # valid_attributes not present on all docutils versions
+        getattr(nodes.Element, "valid_attributes", tuple())
+        + user_attributes
+        + ("kind",)
+    )
+
+
 def define_template(base: type[Directive]) -> type[Directive]:
     """Define the template-code directive.
 
@@ -82,7 +82,7 @@ def define_template(base: type[Directive]) -> type[Directive]:
             *result,
             kind="template",
             name=template_name,
-            project=self.options.get("project", "default"),
+            project=self.options.get("in-project"),
         )
 
         return [block]
@@ -101,11 +101,13 @@ def define_template(base: type[Directive]) -> type[Directive]:
     )
 
 
-class ProjectTreeDirective(Directive):
-    """A directive that inserts a project file browser into the page."""
+class ProjectDirective(Directive):
+    """A directive that declares a project and any associated project level settings."""
 
     required_arguments = 0
     optional_arguments = 1
+
+    has_content = True
 
     def run(self):
         if len(self.arguments) > 0:
@@ -113,8 +115,67 @@ class ProjectTreeDirective(Directive):
         else:
             name = "default"
 
-        return [project_tree(name=name)]
+        container = nodes.container()
+        self.state.nested_parse(self.content, self.content_offset, container)
+
+        return [project(name=name), *container.children]
 
 
-class project_tree(nodes.General, nodes.Element):
-    pass
+class project(nodes.General, nodes.Element):
+    """A marker node used to signal where the project overview should be inserted
+    into a document."""
+
+    user_attributes: tuple[str, ...] = tuple()
+
+    valid_attributes: tuple[str, ...] = (
+        # valid_attributes not present on all docutils versions
+        getattr(nodes.Element, "valid_attributes", tuple())
+        + user_attributes
+        + ("name",)
+    )
+
+
+class file(nodes.General, nodes.Element):
+    """A marker node used to signal where file info should be inserted
+    into a document."""
+
+    user_attributes: tuple[str, ...] = (
+        "in-project",
+        "use-template",
+        # TODO: do any of these make sense?
+        # "in-file",
+        # "in-slot",
+        # "at-revision",
+    )
+
+    valid_attributes: tuple[str, ...] = (
+        # valid_attributes not present on all docutils versions
+        getattr(nodes.Element, "valid_attributes", tuple())
+        + user_attributes
+        + ("filename",)
+    )
+
+
+class FileDirective(Directive):
+    """A directive that sets file level settings for one or more files."""
+
+    required_arguments = 1
+    optional_arguments = 0
+
+    has_content = True
+
+    option_spec: dict[str, Any] = {
+        a: directives.unchanged for a in file.user_attributes
+    }
+
+    def run(self):
+        file_node = file(filename=self.arguments[0])
+
+        for attr in file_node.user_attributes:
+            if (attr_value := self.options.get(attr)) is not None:
+                file_node.attributes[attr] = attr_value
+
+        container = nodes.container()
+        self.state.nested_parse(self.content, self.content_offset, container)
+
+        return [file_node, *container.children]
