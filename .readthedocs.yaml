@@ -8,6 +8,8 @@ version: 2
 # Set the OS, Python version and other tools you might need
 build:
   os: ubuntu-24.04
+  apt_packages:
+  - fossil
   tools:
     python: "3.14"
 
