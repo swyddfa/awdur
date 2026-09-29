@@ -117,7 +117,7 @@ class UpdateProjectTransform(Transform):
         src = self.document.rawsource
         srcblob = Blob.create(src, -1)
 
-        if manager.get_blob(srcblob.uuid) is not None:
+        if manager.get_blob(uuid=srcblob.uuid) is not None:
             manager.logger.debug("Source file %r up to date, nothing to do.", filename)
             return
 

@@ -5,7 +5,7 @@ import typing
 
 from sphinx.builders import Builder
 
-from awdur.project.directory import DirectoryExporter
+from awdur.project import DirectoryExporter
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -55,5 +55,5 @@ class AwdurBuilder(Builder):
         manager: ProjectManager = self.env.settings["awdur_project_manager"]
         exporter = DirectoryExporter(logger=manager.logger, existing_files="force")
 
-        for name, project in manager.projects.items():
-            exporter.export(project, self.outpath / name)
+        for project in manager.get_project_names():
+            manager.export(project, exporter, self.outpath / project)
