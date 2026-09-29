@@ -40,7 +40,6 @@ from jinja2 import TemplateNotFound
 
 from .db import Blob
 from .db import Config
-from .db import Event
 from .db import Manifest
 from .db import Rcvfrom
 from .db import Tag
@@ -66,9 +65,7 @@ class ProjectManager:
         logger: logging.Logger | None = None,
         username: str | None = None,
     ):
-        self.logger: logging.Logger = (logger or logging.getLogger(__name__)).getChild(
-            self.__class__.__name__
-        )
+        self.logger: logging.Logger = logger or logging.getLogger(__name__)
         """The logger instance to use."""
 
         self.manifest: Manifest | None = None
@@ -261,17 +258,12 @@ class ProjectManager:
         fpath = f"project/{project}/template/{name}"
         return self._add_blob(fpath, content)
 
-    def get_blob(self, uuid: str) -> Blob | None:
-        """Return the blob with the given uuid, if known"""
-        if self.db is None:
-            db = sqlite3.connect(self.dbpath)
-        else:
-            db = self.db
-
-        blob = Blob.find(db, uuid=uuid)
-
-        if self.db is None:
-            db.close()
+    def get_blob(
+        self, *, uuid: str | None = None, rid: int | None = None
+    ) -> Blob | None:
+        """Return the blob with the given uuid or rid, if known"""
+        with self.dbcon() as db:
+            blob = Blob.find(db, uuid=uuid, rid=rid)
 
         return blob
 
@@ -308,9 +300,8 @@ class ProjectManager:
 
         now = date or dt.datetime.now(tz=UTC)
 
-        # Create the manifest
-        # TODO: This cannot work now that we're rendering projects into the same db!
-        if (event := Event.find_latest(self.db)) is None:
+        if (uuid := self.get_data_version()) is None:
+            # Create the root manifest
             self.manifest = Manifest(
                 comment=comment,
                 date=now,
@@ -318,12 +309,14 @@ class ProjectManager:
                 tags=[
                     Tag("*", "branch", "*", "trunk"),
                     Tag("*", "sym-trunk", "*"),
+                    Tag("*", "source", "*", "awdur"),
                 ],
             )
             self.logger.debug("Starting first update")
         else:
-            if (mblob := Blob.find(self.db, rid=event.objid)) is None:
-                raise RuntimeError(f"Unable to load manifest blob rid={event.objid}")
+            # Derive from latest manifest
+            if (mblob := Blob.find(self.db, uuid=uuid)) is None:
+                raise RuntimeError(f"Unable to load manifest blob uuid={uuid}")
 
             previous = Manifest.fromblob(mblob)
             self.manifest = previous.make_update(
@@ -363,18 +356,15 @@ class ProjectManager:
         if self.db is None:
             raise RuntimeError("Unable to commit update, no db connection")
 
+        # Record the projects defined.
+        projects = sorted(
+            {p.split("/")[1] for p in self.manifest.files if p.startswith("project/")}
+        )
+        self.manifest.add_tag(Tag("+", "projects", "*", ",".join(projects)))
+
         # Add the manifest.
         blob = self.manifest.toblob(self.rcvfrom.rcvid).insert(self.db)
         self.logger.debug("Manifest: %r\n%s", blob, blob.text)
-
-        event = Event(
-            "ci",
-            self.manifest.date,
-            blob.rid,
-            self.manifest.user,
-            self.manifest.comment.splitlines()[0],
-        ).insert(self.db)
-        self.logger.debug("%r", event)
 
         self.db.commit()
         self.db.close()
@@ -382,7 +372,25 @@ class ProjectManager:
 
         self.manifest = None
         self.rcvfrom = None
+        self.rebuild_metadata()
         self.logger.debug("Update complete.")
+
+    def get_data_version(self, revision: str | None = None) -> int | None:
+        """Get the rid of the manifest representing the internal awdur data structure
+        at the given revision.
+
+        Parameters
+        ----------
+        revision
+           Not currently implemented, this function always returns the latest version.
+        """
+        with self.dbcon() as db:
+            cursor = db.execute(
+                "SELECT rid FROM awdur_data_revisions ORDER BY rid DESC LIMIT 1",
+            )
+            if (row := cursor.fetchone()) is not None:
+                return row[0]
+            return None
 
     def export(self, project: str, exporter: ProjectExporter, output: pathlib.Path):
         """Export the given project using the given exporter."""
@@ -390,27 +398,35 @@ class ProjectManager:
         if self.manifest is not None or self.rcvfrom is not None:
             raise RuntimeError("Cannot export a project while updating.")
 
-        if self.db is None:
-            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
-            self.db = sqlite3.connect(self.dbpath)
+        with self.dbcon() as db:
+            if (rid := self.get_data_version()) is None:
+                raise RuntimeError("Unable to export project, no projects defined")
 
-        if (event := Event.find_latest(self.db)) is None:
-            raise RuntimeError("Unable to export project, no project's defined!")
+            if (mblob := Blob.find(db, rid=rid)) is None:
+                raise RuntimeError(
+                    f"Unable to export project, failed to load manifest blob rid={rid}"
+                )
 
-        if (mblob := Blob.find(self.db, rid=event.objid)) is None:
-            raise RuntimeError(
-                f"Unable to export project, failed to load manifest blob rid={event.objid}"
-            )
-
-        manifest = Manifest.fromblob(mblob)
-        self.render_project(project, manifest)
+            manifest = Manifest.fromblob(mblob)
+            self.render_project(project, manifest)
 
         exporter.export(project, self, output)
 
+    def get_project_names(self) -> list[str]:
+        """Return the list of defined project names."""
+
+        with self.dbcon() as db:
+            cursor = db.execute(
+                "SELECT projects FROM awdur_data_revisions ORDER BY rid DESC LIMIT 1",
+            )
+            if (row := cursor.fetchone()) is not None:
+                return row[0].split(",")
+            return []
+
     def get_project_version(
         self, project: str, revision: str | None = None
-    ) -> str | None:
-        """Get the uuid of the manifest representing the given project at the given
+    ) -> int | None:
+        """Get the rid of the manifest representing the given project at the given
         revision.
 
         Parameters
@@ -424,12 +440,14 @@ class ProjectManager:
         """
         with self.dbcon() as db:
             cursor = db.execute(
-                "SELECT uuid FROM awdur_revisions "
+                "SELECT rid FROM awdur_project_revisions "
                 "WHERE project = ? AND rev LIKE ? "
                 "ORDER BY rev DESC LIMIT 1",
                 (project, revision or "%"),
             )
-            return cursor.fetchone()[0]
+            if (row := cursor.fetchone()) is not None:
+                return row[0]
+            return None
 
     def render_project(self, project: str, manifest: Manifest):
         """Render a project's code from the given manifest."""
@@ -437,68 +455,63 @@ class ProjectManager:
         if self.manifest is not None or self.rcvfrom is not None:
             raise RuntimeError("Cannot render a project while updating.")
 
-        if self.db is None:
-            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
-            self.db = sqlite3.connect(self.dbpath)
+        with self.dbcon() as db:
+            env = Environment(loader=ProjectTemplateLoader(project, manifest, db))
+            timeline = ProjectTimeline.from_manifest(manifest, project)
+            self.logger.debug("Timeline: %s", timeline)
 
-        env = Environment(loader=ProjectTemplateLoader(project, manifest, self.db))
-        timeline = ProjectTimeline.from_manifest(manifest, project)
-        self.logger.debug("Timeline: %s", timeline)
+            project_manifest: Manifest | None = None
 
-        project_manifest: Manifest | None = None
+            for rev, fileset in timeline:
+                self.logger.debug("Exporting revision: %r", rev)
+                comment = f"Project export"
+                date = dt.datetime.now(tz=UTC)
 
-        for rev, fileset in timeline:
-            self.logger.debug("Exporting revision: %r", rev)
-            comment = f"Project export"
-            date = dt.datetime.now(tz=UTC)
-
-            if project_manifest is None:
-                # first check-in
-                project_manifest = Manifest(
-                    comment=comment,
-                    date=date,
-                    user=self.user.login,
-                    tags=[
-                        Tag("*", "branch", "*", project),
-                        Tag("*", f"sym-{project}", "*"),
-                        Tag("*", "source", "*", manifest.uuid),
-                    ],
-                )
-            else:
-                project_manifest = project_manifest.make_update(
-                    comment=comment, date=date, user=self.user.login
-                )
-
-            project_manifest.add_tag(Tag("+", "rev", "*", rev))
-            rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(self.db)
-            for filename, file in fileset:
-                slots, settings = file.resolve(self.db)
-                context: dict[str, Any] = {
-                    "output": {"path": pathlib.Path(filename)},
-                    "slots": slots,
-                }
-                insert_fn = make_code_inserter(context)
-
-                template = env.get_template(settings.get("template", "default"))
-                content = template.render(**context, insert=insert_fn)
-
-                blob = Blob.create(content, rcvfrom.rcvid)
-                if (existing := Blob.find(self.db, uuid=blob.uuid)) is not None:
-                    blob = existing
-                    self.logger.debug("F %s %r, existing blob", filename, blob)
+                if project_manifest is None:
+                    # first check-in
+                    project_manifest = Manifest(
+                        comment=comment,
+                        date=date,
+                        user=self.user.login,
+                        tags=[
+                            Tag("*", "branch", "*", project),
+                            Tag("*", f"sym-{project}", "*"),
+                            Tag("*", "source", "*", manifest.uuid),
+                        ],
+                    )
                 else:
-                    blob = blob.insert(self.db)
-                    self.logger.debug("F %s, %r, new blob", filename, blob)
+                    project_manifest = project_manifest.make_update(
+                        comment=comment, date=date, user=self.user.login
+                    )
 
-                project_manifest.add_file(pathlib.Path(filename), blob)
+                project_manifest.add_tag(Tag("+", "rev", "*", rev))
+                rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(db)
+                for filename, file in fileset:
+                    slots, settings = file.resolve(db)
+                    context: dict[str, Any] = {
+                        "output": {"path": pathlib.Path(filename)},
+                        "slots": slots,
+                    }
+                    insert_fn = make_code_inserter(context)
 
-            # Commit the revision
-            blob = project_manifest.toblob(rcvfrom.rcvid).insert(self.db)
-            self.logger.debug("Manifest: %r\n%s", blob, blob.text)
-            self.db.commit()
+                    template = env.get_template(settings.get("template", "default"))
+                    content = template.render(**context, insert=insert_fn)
 
-        self.db.close()
-        self.db = None
+                    blob = Blob.create(content, rcvfrom.rcvid)
+                    if (existing := Blob.find(db, uuid=blob.uuid)) is not None:
+                        blob = existing
+                        self.logger.debug("F %s %r, existing blob", filename, blob)
+                    else:
+                        blob = blob.insert(db)
+                        self.logger.debug("F %s, %r, new blob", filename, blob)
+
+                    project_manifest.add_file(pathlib.Path(filename), blob)
+
+                # Commit the revision
+                blob = project_manifest.toblob(rcvfrom.rcvid).insert(db)
+                self.logger.debug("Manifest: %r\n%s", blob, blob.text)
+                db.commit()
+
         self.rebuild_metadata()
 
     def rebuild_metadata(self):

@@ -29,8 +29,6 @@ if typing.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
 
-    from awdur.project import ProjectManager
-
 
 def env_get_outdated(
     app: Sphinx,
@@ -41,7 +39,7 @@ def env_get_outdated(
 ) -> Sequence[str]:
     """Setup the project instance to use."""
     env.settings["awdur_project_manager"] = ProjectManager(
-        default_name=None,
+        data_dir=pathlib.Path(app.builder.doctreedir),
         logger=getLogger("awdur"),
     )
 
@@ -78,16 +76,11 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
     project_name = f"sphinx:{builder.name}"
     manager: ProjectManager = app.env.settings["awdur_project_manager"]
 
-    if project_name not in manager:
-        return
-
-    project: ProjectManager = manager[project_name]
-
     # The behavior doesn't quite line up with how I think about it, but `fossil open --force`
     # forces fossil to use the dir we say, and generate the files that are included in the
     # exported project.
     exporter = DirectoryExporter(logger=manager.logger, existing_files="force")
-    exporter.export(project, output=pathlib.Path(builder.outdir))
+    manager.export(project_name, exporter, pathlib.Path(builder.outdir))
 
 
 def no_op(self, node): ...

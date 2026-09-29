@@ -236,30 +236,52 @@ CREATE VIEW artifact(
 FROM blob LEFT JOIN delta ON (blob.rid=delta.rid);
 
 -- Awdur specific views and tables.
---
--- Manifest entries representing rendered project revisions should have
--- at least two properties assigned:
---
--- T *branch uuid <project name>
--- T +rev    uuid <revision>
---
--- Using fossil's tag assignment metadata tables, this constructs a
--- view that gives us a revision timeline for each project.
-CREATE VIEW awdur_revisions AS
-  WITH props AS (
-    SELECT
-      tag.tagname,
-      tagxref.value,
-      tagxref.rid
-    FROM tag LEFT JOIN tagxref
-    ON tag.tagid = tagxref.tagid
-    WHERE tagxref.value IS NOT NULL
-  )
 
+-- awdur_properties
+--
+-- Joining tag with tagxref so that we get a list of all properties
+-- and the blobs they are assigned to.
+CREATE VIEW awdur_properties AS
   SELECT
-    blob.uuid,
+    tag.tagname,
+    tagxref.value,
+    tagxref.rid
+  FROM tag LEFT JOIN tagxref
+  ON tag.tagid = tagxref.tagid
+  WHERE tagxref.value IS NOT NULL;
+
+-- awdur_project_revisions
+--
+-- Manifest entries representing rendered project revisions should be
+-- assigned the following properties:
+--
+-- T *branch * <project name>
+-- T +rev    * <revision>
+-- T *source * <manifest uuid>
+--
+-- Using the property view defined above, this constructs a view that
+-- gives us a revision timeline for each project.
+CREATE VIEW awdur_project_revisions AS
+  SELECT
+    rid,
+    max(CASE WHEN tagname = 'source' THEN VALUE END) AS source,
     max(CASE WHEN tagname = 'branch' THEN VALUE END) AS project,
     max(CASE WHEN tagname = 'rev' THEN VALUE END) AS rev
-  FROM props LEFT JOIN blob
-  ON blob.rid = props.rid
-  GROUP BY props.rid;
+  FROM awdur_properties
+  GROUP BY rid;
+
+
+-- awdur_data_revisions
+--
+-- Manifest entries representing awdur's internal data structure
+-- should be assigned the following properties:
+--
+-- T *source * awdur
+--
+-- Using the property view defined above, this constructs a view that
+-- gives us a timeline for evolution of the internal data structure.
+CREATE VIEW awdur_data_revisions AS
+  SELECT
+    rid,
+    max(CASE WHEN tagname = 'projects' THEN VALUE END) as projects
+  FROM awdur_properties
