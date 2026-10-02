@@ -22,9 +22,11 @@ import datetime as dt
 import fnmatch
 import functools
 import hashlib
+import itertools
 import logging
 import os
 import pathlib
+import re
 import sqlite3
 import subprocess
 import textwrap
@@ -310,7 +312,7 @@ class ProjectManager:
 
         now = date or dt.datetime.now(tz=UTC)
 
-        if (uuid := self.get_data_version()) is None:
+        if (rid := self.get_data_version()) is None:
             # Create the root manifest
             self.manifest = Manifest(
                 comment=comment,
@@ -325,8 +327,8 @@ class ProjectManager:
             self.logger.debug("Starting first update")
         else:
             # Derive from latest manifest
-            if (mblob := Blob.find(self.db, uuid=uuid)) is None:
-                raise RuntimeError(f"Unable to load manifest blob uuid={uuid}")
+            if (mblob := Blob.find(self.db, rid=rid)) is None:
+                raise RuntimeError(f"Unable to load manifest blob rid={rid}")
 
             previous = Manifest.fromblob(mblob)
             self.manifest = previous.make_update(
@@ -429,8 +431,8 @@ class ProjectManager:
             cursor = db.execute(
                 "SELECT projects FROM awdur_data_revisions ORDER BY rid DESC LIMIT 1",
             )
-            if (row := cursor.fetchone()) is not None:
-                return row[0].split(",")
+            if (row := cursor.fetchone()) is not None and (value := row[0]) is not None:
+                return value.split(",")
             return []
 
     def get_project_version(
@@ -538,7 +540,7 @@ class ProjectManager:
 class ProjectFile:
     """Represents a file"""
 
-    slots: dict[str, list[str]] = dataclasses.field(
+    slots: dict[str, list[tuple[str, str]]] = dataclasses.field(
         default_factory=functools.partial(defaultdict, list)
     )
     """A dictionary mapping content slot names to a list of blob uuids containing the
@@ -552,11 +554,11 @@ class ProjectFile:
         slots: dict[str, list[str]] = {}
 
         for slotname, uuids in self.slots.items():
-            for uuid in uuids:
+            for idx, uuid in uuids:
                 if (blob := Blob.find(db, uuid=uuid)) is None:
                     raise RuntimeError(f"Unable resolve blob {uuid!r}")
 
-                slots.setdefault(slotname, []).append(blob.text)
+                slots.setdefault(slotname, []).append((idx, blob.text))
 
         settings: dict[str, str] = {}
         # Settings should be sorted in priority order!
@@ -636,8 +638,7 @@ class ProjectTimeline:
             rev = timeline[revision]
 
             file = rev[filename]
-            # TODO: Handle block ordering
-            file.slots[slot].append(uuid)
+            file.slots[slot].append((idx, uuid))
 
         # Now map the settings to each file.
         prefix = f"project/{project_name}/setting/"
@@ -660,10 +661,12 @@ def make_code_inserter(context):
     """Return the implementation of the 'insert' function to use."""
 
     def insert(
-        lines: list[str], indent: int | str | None = None, indentchar: str = " "
+        lines: list[tuple[str, str]],
+        indent: int | str | None = None,
+        indentchar: str = " ",
     ) -> str:
         """Insert code into the file."""
-        code = "\n\n".join(lines)
+        code = "\n\n".join((l for _, l in sorted(lines, key=folgzettel_sort)))
 
         # Treat the code as a template so we can expand nested substitutions
         # - is this a horrible idea??
@@ -723,6 +726,23 @@ class ProjectTemplateLoader(BaseLoader):
 
         self._templates[template] = tmpl = (blob.text, None, None)
         return tmpl
+
+
+def folgzettel_sort(item: str | tuple[str, ...]) -> tuple[int | str, ...]:
+    """A key function for use with Python's sorted() function to return a series of
+    'folgzettel' numbers in the correct order."""
+
+    if isinstance(item, tuple):
+        value = item[0]
+    else:
+        value = item
+
+    prefix, *rest = re.split(r"(\d+)", value)
+    if prefix != "":
+        raise ValueError("Folgzettel numbers must start with a digit")
+
+    converters = itertools.cycle([int, str])
+    return tuple(convert(value) for convert, value in zip(converters, rest))
 
 
 def gen_code_from_uuid():

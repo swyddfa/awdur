@@ -42,7 +42,7 @@ def test_hello_world_render(workspace: pathlib.Path):
 
 
 @pytest.mark.parametrize("workspace", ["hello-world"], indirect=True)
-@pytest.mark.skip  # incompatible with default filename, revisit.
+@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
 def test_hello_world_extract(workspace: pathlib.Path):
     """Ensure that we can extract code from our hello-world example."""
 
@@ -60,7 +60,7 @@ def test_hello_world_extract(workspace: pathlib.Path):
     result = subprocess.run(cmd, cwd=workspace)
     assert result.returncode == 0
 
-    output = workspace / "out/hello-world/hello-world"
+    output = workspace / "out/default/hello-world.py"
     assert output.exists()
 
     content = output.read_text()
@@ -94,7 +94,7 @@ def test_multiple_blocks_render(workspace: pathlib.Path):
 
 
 @pytest.mark.parametrize("workspace", ["multiple-blocks"], indirect=True)
-@pytest.mark.skip  # incompatible with default filename, revisit.
+@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
 def test_multiple_blocks_extract(workspace: pathlib.Path):
     """Ensure that we can extract code from our multiple-blocks example."""
 
@@ -112,7 +112,7 @@ def test_multiple_blocks_extract(workspace: pathlib.Path):
     result = subprocess.run(cmd, cwd=workspace)
     assert result.returncode == 0
 
-    output = workspace / "out/multiple-blocks.py"
+    output = workspace / "out/default/multiple-blocks.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
