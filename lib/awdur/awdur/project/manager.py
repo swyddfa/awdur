@@ -85,6 +85,16 @@ class ProjectManager:
         self.user: User = self._init_db(username or os.environ.get("USER", "awdur"))
         """The user account to use."""
 
+    def __getstate__(self) -> object:
+        # So that Sphinx can pickle and unpickle this class, we need to mask any fields
+        # that are unpickleable.
+        #
+        # No need to provide __setstate__ as to restore self.db we can just open a fresh
+        # connection when needed.
+        state = self.__dict__.copy()
+        del state["db"]
+        return state
+
     def _init_db(self, username: str) -> User:
         """Initialize the db if needed and return the user's account record."""
 
