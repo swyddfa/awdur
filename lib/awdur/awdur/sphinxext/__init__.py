@@ -103,7 +103,7 @@ def no_op(self, node): ...
 
 def visit_code_block(self, node: code_block):
     header = self.builder.templates.render(
-        "awdur/codeblock-header.html", {**node.attributes}
+        "awdur/codeblock-header.html", {"codeblock": {**node.attributes}}
     )
     self.body.append('<div class="awdur-codeblock">')
     self.body.append(header)

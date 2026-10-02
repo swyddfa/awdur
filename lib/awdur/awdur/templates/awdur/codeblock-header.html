@@ -1,10 +1,22 @@
 <div class="awdur-codeblock-header">
-{%- if filename %}
-  <code class="awdur-codeblock-project">
-    <span class="pre">{{project}}</span>
-  </code>
-  <code class="awdur-codeblock-filename">
-    <span class="pre">{{filename}}</span>
-  </code>
-{%- endif %}
+  <div>
+  {%- if codeblock['in-file'] %}
+    <code class="awdur-codeblock-filename">
+      <span class="pre">{{codeblock['in-file']}}</span>
+    </code>
+
+    {%- if codeblock['in-slot'] and codeblock['in-slot'] != 'content' %}
+    <code class="awdur-codeblock-slot">
+      <span class="pre">[{{codeblock['in-slot']}}]</span>
+    </code>
+    {%- endif %}
+  {%- endif %}
+  </div>
+  <div>
+  {%- if codeblock['in-project'] %}
+    <code class="awdur-codeblock-project">
+      <span class="pre">{{codeblock['in-project']}} r{{codeblock['at-revision'] or '1'}}</span>
+    </code>
+  {%- endif %}
+  </div>
 </div>
