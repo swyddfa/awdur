@@ -37,13 +37,28 @@ def env_get_outdated(
     changed: set[str],
     removed: set[str],
 ) -> Sequence[str]:
-    """Setup the project instance to use."""
-    env.settings["awdur_project_manager"] = ProjectManager(
+    """Setup the project manager instance and start an update cycle."""
+
+    manager = ProjectManager(
         data_dir=pathlib.Path(app.builder.doctreedir),
         logger=getLogger("awdur"),
     )
+    manager.start_update("sphinx-build")
+    env.settings["awdur_project_manager"] = manager
 
     return set()
+
+
+def stash_source(app: Sphinx, docname: str, source: list[str]):
+    """Stash the source of the file processed so that the UpdateProjectTransform can
+    reference it later."""
+    app.env.temp_data["awdur-source"] = (docname, source[0])
+
+
+def write_started(app: Sphinx, builder):
+    """Finalise the update"""
+    manager: ProjectManager = app.env.settings["awdur_project_manager"]
+    manager.commit_update()
 
 
 def inject_resources(app: Sphinx):
@@ -117,7 +132,9 @@ def setup(app: Sphinx):
 
     # Register custom event handlers
     _ = app.connect("builder-inited", inject_resources)
+    _ = app.connect("source-read", stash_source, priority=1000)
     _ = app.connect("env-get-outdated", env_get_outdated)
+    _ = app.connect("write-started", write_started)
     _ = app.connect("build-finished", inject_generated_files)
 
     # Register custom transforms

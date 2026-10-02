@@ -110,11 +110,17 @@ class UpdateProjectTransform(Transform):
     default_priority = ResolveProjectMetadataTransform.default_priority + 1
 
     def apply(self):
-        manager: ProjectManager = self.document.settings.awdur_project_manager
+        settings = self.document.settings
+        manager: ProjectManager = settings.awdur_project_manager
 
-        # Not sure why this is not set on the document itself...
-        filename = self.document.reporter.source
-        src = self.document.rawsource
+        if in_sphinx_build := "env" in dir(settings):
+            # We are running in a Sphinx build.
+            filename, src = settings.env.temp_data["awdur-source"]
+        else:
+            # Not sure why this is not set on the document itself...
+            filename = self.document.reporter.source
+            src = self.document.rawsource
+
         srcblob = Blob.create(src, -1)
 
         if manager.get_blob(uuid=srcblob.uuid) is not None:
@@ -129,9 +135,10 @@ class UpdateProjectTransform(Transform):
         self.update_files(manager)
         self.update_codeblocks(manager)
 
-        # Be sure to commit changes!
-        # TODO: Probably need to rethink this in the Sphinx use case.
-        manager.commit_update()
+        if not in_sphinx_build:
+            # When running under sphinx we commit changes in one go during
+            # 'write-started' event
+            manager.commit_update()
 
     def update_files(self, manager: ProjectManager):
         """Update based on all the file nodes in the document."""
