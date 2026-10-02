@@ -27,7 +27,7 @@ class DirectoryExporter:
     def __init__(
         self,
         logger: logging.Logger | None = None,
-        existing_files: Literal["keep", "force"] | None = None,
+        existing_files: Literal["keep", "force", "overwrite"] | None = None,
     ):
         self.logger = logger or logging.getLogger(__name__)
         self.existing_files = existing_files
@@ -47,7 +47,13 @@ class DirectoryExporter:
             )
             return
 
-        cmd = [
+        # Check for existing checkouts.
+        if (fslckout := output / ".fslckout").exists():
+            # For now, we just delete the existing checkout and move on. At some point
+            # however, it will be nice to see if we can do something more interesting!
+            fslckout.unlink()
+
+        cmd: list[str] = [
             "fossil",
             "open",
             str(manager.dbpath),
@@ -55,12 +61,26 @@ class DirectoryExporter:
             "--workdir",
             str(output),
         ]
+        input_ = None
+
         match self.existing_files:
             case "keep":
-                cmd.extend(["--keep"])
+                cmd.append("--keep")
             case "force":
                 cmd.append("--force")
+            case "overwrite":
+                cmd.append("--force")
+
+                # Even with the --force flag, fossil takes the conservative option and
+                # if existing files differ with the incoming changes it will ask if we
+                # want to overwrite the file or not.
+                #
+                # So that the user doesn't have to mash 'y' over and over again, this
+                # mode sends 'a\n' as input to select the always overwrite option.
+                input_ = b"a\n"
+
             case _:
                 pass  # error if existing files
 
-        _ = subprocess.run(cmd)
+        self.logger.info("Running: %s", " ".join(cmd))
+        _ = subprocess.run(cmd, input=input_)
