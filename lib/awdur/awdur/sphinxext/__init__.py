@@ -94,7 +94,7 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
     # The behavior doesn't quite line up with how I think about it, but `fossil open --force`
     # forces fossil to use the dir we say, and generate the files that are included in the
     # exported project.
-    exporter = DirectoryExporter(logger=manager.logger, existing_files="force")
+    exporter = DirectoryExporter(logger=manager.logger, existing_files="overwrite")
     manager.export(project_name, exporter, pathlib.Path(builder.outdir))
 
 
