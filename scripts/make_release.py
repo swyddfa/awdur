@@ -93,7 +93,7 @@ COMPONENTS: dict[str, Component] = {
     for c in [
         Component(
             name="awdur",
-            bump_breaking="major",
+            bump_breaking="minor",
             bump_minor="minor",
             bump_patch="patch",
             commit_prefix="Awdur Release v",
