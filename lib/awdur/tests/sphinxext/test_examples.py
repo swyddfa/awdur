@@ -60,7 +60,7 @@ def test_hello_world_extract(workspace: pathlib.Path):
     result = subprocess.run(cmd, cwd=workspace)
     assert result.returncode == 0
 
-    output = workspace / "out/hello-world.py"
+    output = workspace / "out/default/hello-world.py"
     assert output.exists()
 
     content = output.read_text()
@@ -112,7 +112,7 @@ def test_multiple_blocks_extract(workspace: pathlib.Path):
     result = subprocess.run(cmd, cwd=workspace)
     assert result.returncode == 0
 
-    output = workspace / "out/multiple-blocks.py"
+    output = workspace / "out/default/multiple-blocks.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -274,98 +274,6 @@ def test_inline_templates_extract(workspace: pathlib.Path):
     )
 
 
-@pytest.mark.parametrize("workspace", ["project-tree"], indirect=True)
-@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
-def test_project_tree_render(workspace: pathlib.Path):
-    """Ensure that we can render docs from our project tree example."""
-
-    # fmt: off
-    cmd = [
-        sys.executable, "-m", "sphinx",
-        ".", "out",
-        "-b", "singlehtml",
-        "-C", "-W",
-        "-D", "root_doc=project-tree",
-        "-D", "extensions=awdur.sphinxext",
-    ]
-    # fmt: on
-
-    result = subprocess.run(cmd, cwd=workspace)
-    assert result.returncode == 0
-
-    output = workspace / "out/project-tree.html"
-    assert output.exists()
-
-    content = output.read_text(encoding="utf-8")
-    assert "<!DOCTYPE html>" in content
-
-
-@pytest.mark.parametrize("workspace", ["project-tree"], indirect=True)
-@pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
-def test_project_tree_extract(workspace: pathlib.Path):
-    """Ensure that we can extract code from our inline templates example."""
-
-    # fmt: off
-    cmd = [
-        sys.executable, "-m", "sphinx",
-        ".", "out",
-        "-b", "awdur",
-        "-C", "-W",
-        "-D", "root_doc=project-tree",
-        "-D", "extensions=awdur.sphinxext",
-    ]
-    # fmt: on
-
-    result = subprocess.run(cmd, cwd=workspace)
-    assert result.returncode == 0
-
-    # check hello.py
-    output = workspace / "out/default/hello.py"
-    assert output.exists()
-
-    assert 'print("Hello, World!")\n' == output.read_text()
-
-    # check math/fib.py
-    output = workspace / "out/default/math/fib.py"
-    assert output.exists()
-
-    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
-    assert result.returncode == 0
-
-    stdout = result.stdout.decode("utf-8")
-    assert stdout.strip() == (
-        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55"
-    )
-
-    # check math/square.py
-    output = workspace / "out/default/math/square.py"
-    assert output.exists()
-
-    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
-    assert result.returncode == 0
-
-    stdout = result.stdout.decode("utf-8")
-    assert stdout.strip() == (
-        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
-    )
-
-    # check shapes/triangle.py
-    output = workspace / "out/default/shapes/triangle.py"
-    assert output.exists()
-
-    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
-    assert result.returncode == 0
-
-    # fmt: off
-    stdout = result.stdout.decode("utf-8")
-    assert stdout.strip() == (
-        f"A triangle with sides a=3, b=4, c=5 has{os.linesep}"
-        f"- Perimeter, P=12{os.linesep}"
-        "- Area, A=6.0"
-    )
-    # fmt: on
-
-
 @pytest.mark.parametrize("workspace", ["multiple-projects"], indirect=True)
 @pytest.mark.skipif(not SPHINX_AVAILABLE, reason="test requires sphinx")
 def test_multiple_projects_render(workspace: pathlib.Path):
@@ -412,7 +320,7 @@ def test_multiple_projects_extract(workspace: pathlib.Path):
     assert result.returncode == 0
 
     # check hello.py
-    output = workspace / "out/hello.py"
+    output = workspace / "out/default/hello.py"
     assert output.exists()
 
     assert 'print("Hello, World!")\n' == output.read_text()

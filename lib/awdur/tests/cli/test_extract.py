@@ -8,16 +8,33 @@ import sys
 import pytest
 
 
+def getenv(workspace: pathlib.Path):
+    return {
+        **os.environ,
+        "FOSSIL_HOME": str(workspace / "data"),
+    }
+
+
 @pytest.mark.parametrize("workspace", ["hello-world"], indirect=True)
 def test_extract_hello_world(workspace: pathlib.Path):
     """Ensure we can extract code from the example correctly."""
 
     result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "hello-world.rst"], cwd=workspace
+        [
+            sys.executable,
+            "-m",
+            "awdur",
+            "--data-dir",
+            str(workspace / "data"),
+            "extract",
+            "hello-world.rst",
+        ],
+        cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 
-    output = workspace / "hello-world.py"
+    output = workspace / "hello-world" / "hello-world.py"
     assert output.exists()
 
     assert 'print("Hello, World!")\n' == output.read_text()
@@ -28,11 +45,21 @@ def test_extract_multiple_blocks(workspace: pathlib.Path):
     """Ensure we can extract code from the example correctly."""
 
     result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "multiple-blocks.rst"], cwd=workspace
+        [
+            sys.executable,
+            "-m",
+            "awdur",
+            "--data-dir",
+            str(workspace / "data"),
+            "extract",
+            "multiple-blocks.rst",
+        ],
+        cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 
-    output = workspace / "multiple-blocks.py"
+    output = workspace / "multiple-blocks" / "multiple-blocks.py"
     assert output.exists()
 
     result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
@@ -53,7 +80,17 @@ def test_extract_multiple_files(workspace: pathlib.Path):
     """Ensure we can extract code from the example correctly."""
 
     result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "multiple-files.rst"], cwd=workspace
+        [
+            sys.executable,
+            "-m",
+            "awdur",
+            "--data-dir",
+            str(workspace / "data"),
+            "extract",
+            "multiple-files.rst",
+        ],
+        cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 
@@ -87,13 +124,22 @@ def test_extract_multiple_projects_default(workspace: pathlib.Path):
     """Ensure we can extract code from the example default project correctly."""
 
     result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "multiple-projects.rst"],
+        [
+            sys.executable,
+            "-m",
+            "awdur",
+            "--data-dir",
+            str(workspace / "data"),
+            "extract",
+            "multiple-projects.rst",
+        ],
         cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 
     # check hello.py
-    output = workspace / "hello.py"
+    output = workspace / "multiple-projects" / "hello.py"
     assert output.exists()
 
     assert 'print("Hello, World!")\n' == output.read_text()
@@ -108,12 +154,15 @@ def test_extract_multiple_projects_math(workspace: pathlib.Path):
             sys.executable,
             "-m",
             "awdur",
+            "--data-dir",
+            str(workspace / "data"),
             "extract",
             "multiple-projects.rst",
             "-p",
             "math",
         ],
         cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 
@@ -151,6 +200,8 @@ def test_extract_multiple_projects_shapes(workspace: pathlib.Path):
             sys.executable,
             "-m",
             "awdur",
+            "--data-dir",
+            str(workspace / "data"),
             "extract",
             "multiple-projects.rst",
             "-p",
@@ -196,8 +247,17 @@ def test_extract_inline_templates(workspace: pathlib.Path):
     """Ensure we can extract code from the example correctly."""
 
     result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "inline-templates.rst"],
+        [
+            sys.executable,
+            "-m",
+            "awdur",
+            "--data-dir",
+            str(workspace / "data"),
+            "extract",
+            "inline-templates.rst",
+        ],
         cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 
@@ -232,70 +292,24 @@ def test_extract_inline_templates(workspace: pathlib.Path):
     )
 
 
-@pytest.mark.parametrize("workspace", ["project-tree"], indirect=True)
-def test_extract_project_tree(workspace: pathlib.Path):
-    """Ensure we can extract code from the example correctly."""
-
-    result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "project-tree.rst"],
-        cwd=workspace,
-    )
-    assert result.returncode == 0
-
-    # check hello.py
-    output = workspace / "project-tree/hello.py"
-    assert output.exists()
-
-    assert 'print("Hello, World!")\n' == output.read_text()
-
-    # check math/fib.py
-    output = workspace / "project-tree/math/fib.py"
-    assert output.exists()
-
-    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
-    assert result.returncode == 0
-
-    stdout = result.stdout.decode("utf-8")
-    assert stdout.strip() == (
-        "The first 10 Fibonacci numbers are: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55"
-    )
-
-    # check math/square.py
-    output = workspace / "project-tree/math/square.py"
-    assert output.exists()
-
-    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
-    assert result.returncode == 0
-
-    stdout = result.stdout.decode("utf-8")
-    assert stdout.strip() == (
-        "The first 10 square numbers are: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100"
-    )
-
-    # check shapes/triangle.py
-    output = workspace / "project-tree/shapes/triangle.py"
-    assert output.exists()
-
-    result = subprocess.run([sys.executable, f"{output}"], capture_output=True)
-    assert result.returncode == 0
-
-    # fmt: off
-    stdout = result.stdout.decode("utf-8")
-    assert stdout.strip() == (
-        f"A triangle with sides a=3, b=4, c=5 has{os.linesep}"
-        f"- Perimeter, P=12{os.linesep}"
-        "- Area, A=6.0"
-    )
-    # fmt: on
-
-
 @pytest.mark.parametrize("workspace", ["named-slots"], indirect=True)
 def test_extract_named_slots(workspace: pathlib.Path):
     """Ensure we can extract code from the example correctly."""
 
     result = subprocess.run(
-        [sys.executable, "-m", "awdur", "extract", "named-slots.rst", "-p", "example"],
+        [
+            sys.executable,
+            "-m",
+            "awdur",
+            "--data-dir",
+            str(workspace / "data"),
+            "extract",
+            "named-slots.rst",
+            "-p",
+            "example",
+        ],
         cwd=workspace,
+        env=getenv(workspace),
     )
     assert result.returncode == 0
 

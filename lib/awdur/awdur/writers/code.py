@@ -4,13 +4,13 @@ import typing
 
 from docutils.writers import Writer
 
-from awdur.transforms import BuildProjectsTransform
 from awdur.transforms import ResolveProjectMetadataTransform
+from awdur.transforms import UpdateProjectTransform
 
 if typing.TYPE_CHECKING:
     from docutils.transforms import Transform
 
-    from awdur.project import Project
+    from awdur.project import ProjectManager
 
 
 class SourceCodeWriter(Writer):
@@ -19,7 +19,7 @@ class SourceCodeWriter(Writer):
     def get_transforms(self) -> list[type[Transform]]:
         return super().get_transforms() + [
             ResolveProjectMetadataTransform,
-            BuildProjectsTransform,
+            UpdateProjectTransform,
         ]
 
     def translate(self) -> None:

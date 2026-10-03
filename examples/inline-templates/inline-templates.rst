@@ -31,20 +31,22 @@ A template can be defined using the ``.. awdur:template::`` directive.
    {% endblock %}
 
    {% block footer %}
-
-   (provide '{{ output.path.stem }}){% endblock %}
+   (provide '{{ output.path.stem }})
+   {% endblock %}
 
 
 Using Templates
 ---------------
 
-To use a template, reference its name from at least one of the code blocks within the file.
+To apply a template to a file, use the ``awdur:file::`` directive.
+
+.. awdur:file:: *.el
+   :use-template: elisp-module
 
 For example, the code block below defines a function to compute the area of a triangle.
 
 .. code:: emacs-lisp
-   :filename: triangle.el
-   :template: elisp-module
+   :in-file: triangle.el
 
    (defun triangle-area (a b c)
      (* 0.5 a b))
@@ -52,7 +54,7 @@ For example, the code block below defines a function to compute the area of a tr
 And this defines a function to compute the perimeter, note that now we've the template once we don't need to repeat it.
 
 .. code:: emacs-lisp
-   :filename: triangle.el
+   :in-file: triangle.el
 
    (defun triangle-perimeter (a b c)
      (+ a b c))
@@ -60,8 +62,7 @@ And this defines a function to compute the perimeter, note that now we've the te
 Of course, the whole point of defining a template is being able to reuse it across multiple files.
 
 .. code:: emacs-lisp
-   :filename: rectangle.el
-   :template: elisp-module
+   :in-file: rectangle.el
 
    (defun rectangle-area (w h)
      (* w h))

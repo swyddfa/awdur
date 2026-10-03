@@ -3,14 +3,14 @@ from __future__ import annotations
 import subprocess
 import sys
 import typing
-from collections import defaultdict
 
 from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.domains import Domain
 from sphinx.util.docutils import SphinxDirective
 
-from awdur.directives import ProjectTreeDirective
+from awdur.directives import FileDirective
+from awdur.directives import ProjectDirective
 
 if typing.TYPE_CHECKING:
     from typing import Any
@@ -74,6 +74,7 @@ class RenderDirective(SphinxDirective):
         ]
 
 
+@typing.final
 class AwdurDomain(Domain):
     """A domain that serves as a central point for awdur functionality."""
 
@@ -84,17 +85,15 @@ class AwdurDomain(Domain):
 
     directives = {
         "render": RenderDirective,
-        "project-tree": ProjectTreeDirective,
+        "file": FileDirective,
+        "files": FileDirective,
+        "project": ProjectDirective,
         # The following directives are populated dynamically during extension setup.
         #
         # 'template'
     }
 
     roles = {}
-
-    @property
-    def projects(self) -> dict[str, Any]:
-        return self.data.setdefault("projects", defaultdict(Project))
 
     def resolve_xref(
         self,

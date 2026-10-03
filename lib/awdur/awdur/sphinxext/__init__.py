@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import importlib.resources
+import pathlib
 import typing
 
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.directives.code import CodeBlock
 from sphinx.jinja2glue import SphinxFileSystemLoader
+from sphinx.util.logging import getLogger
 
 from awdur import __version__
 from awdur.directives import code_block
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
-from awdur.directives import project_tree
+from awdur.directives import project
+from awdur.project import DirectoryExporter
 from awdur.project import ProjectManager
-from awdur.transforms import BuildProjectsTransform
-from awdur.transforms import ProjectBrowserTransform
+from awdur.transforms import RenderProjectTransform
 from awdur.transforms import ResolveProjectMetadataTransform
+from awdur.transforms import UpdateProjectTransform
 
 from .builder import AwdurBuilder
 from .domain import AwdurDomain
@@ -26,8 +29,6 @@ if typing.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
 
-    from awdur.project import Project
-
 
 def env_get_outdated(
     app: Sphinx,
@@ -36,12 +37,28 @@ def env_get_outdated(
     changed: set[str],
     removed: set[str],
 ) -> Sequence[str]:
-    """Setup the project instance to use."""
-    env.settings["awdur_project_manager"] = ProjectManager(
-        default_name=app.config.root_doc
+    """Setup the project manager instance and start an update cycle."""
+
+    manager = ProjectManager(
+        data_dir=pathlib.Path(app.builder.doctreedir),
+        logger=getLogger("awdur"),
     )
+    manager.start_update("sphinx-build")
+    env.settings["awdur_project_manager"] = manager
 
     return set()
+
+
+def stash_source(app: Sphinx, docname: str, source: list[str]):
+    """Stash the source of the file processed so that the UpdateProjectTransform can
+    reference it later."""
+    app.env.temp_data["awdur-source"] = (docname, source[0])
+
+
+def write_started(app: Sphinx, builder):
+    """Finalise the update"""
+    manager: ProjectManager = app.env.settings["awdur_project_manager"]
+    manager.commit_update()
 
 
 def inject_resources(app: Sphinx):
@@ -74,11 +91,11 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
     project_name = f"sphinx:{builder.name}"
     manager: ProjectManager = app.env.settings["awdur_project_manager"]
 
-    if project_name not in manager:
-        return
-
-    project: Project = manager[project_name]
-    project.export(output=builder.outdir)
+    # The behavior doesn't quite line up with how I think about it, but `fossil open --force`
+    # forces fossil to use the dir we say, and generate the files that are included in the
+    # exported project.
+    exporter = DirectoryExporter(logger=manager.logger, existing_files="overwrite")
+    manager.export(project_name, exporter, pathlib.Path(builder.outdir))
 
 
 def no_op(self, node): ...
@@ -86,7 +103,7 @@ def no_op(self, node): ...
 
 def visit_code_block(self, node: code_block):
     header = self.builder.templates.render(
-        "awdur/codeblock-header.html", {**node.attributes}
+        "awdur/codeblock-header.html", {"codeblock": {**node.attributes}}
     )
     self.body.append('<div class="awdur-codeblock">')
     self.body.append(header)
@@ -98,7 +115,7 @@ def depart_code_block(self, node):
 
 def setup(app: Sphinx):
     # Register custom nodes
-    app.add_node(project_tree, html=(no_op, no_op))
+    app.add_node(project, html=(no_op, no_op))
     app.add_node(code_block, html=(visit_code_block, depart_code_block))
 
     # Register custom directives
@@ -115,12 +132,14 @@ def setup(app: Sphinx):
 
     # Register custom event handlers
     _ = app.connect("builder-inited", inject_resources)
+    _ = app.connect("source-read", stash_source, priority=1000)
     _ = app.connect("env-get-outdated", env_get_outdated)
+    _ = app.connect("write-started", write_started)
     _ = app.connect("build-finished", inject_generated_files)
 
     # Register custom transforms
     app.add_transform(ResolveProjectMetadataTransform)
-    app.add_transform(BuildProjectsTransform)
-    app.add_post_transform(ProjectBrowserTransform)
+    app.add_transform(UpdateProjectTransform)
+    app.add_post_transform(RenderProjectTransform)
 
     return {"version": __version__, "parallel_read_safe": True}

@@ -2,20 +2,23 @@ from __future__ import annotations
 
 import argparse
 import bdb
+import dataclasses
 import inspect
 import logging
 import pathlib
 import sys
 import typing
 
+import platformdirs
 from docutils.parsers.rst import directives
 from docutils.parsers.rst.directives.body import CodeBlock
 
-from awdur.directives import ProjectTreeDirective
+from awdur.directives import FileDirective
+from awdur.directives import ProjectDirective
 from awdur.directives import define_codeblock
 from awdur.directives import define_template
 
-from .extract import extract
+from .extract import register_extract
 from .render import render
 
 if typing.TYPE_CHECKING:
@@ -25,6 +28,30 @@ if typing.TYPE_CHECKING:
     from typing import TypeVar
 
     T = TypeVar("T")
+
+
+@dataclasses.dataclass
+class Context:
+    """A place to store general utility values."""
+
+    logger: logging.Logger
+    """The logger instance to use."""
+
+    data_dir: pathlib.Path
+    """The path at which to store persistent data."""
+
+    @classmethod
+    def fromargs(cls, args: dict[str, Any]):
+        if (data_dir := args.get("data_dir")) is None:
+            data_dir = pathlib.Path(
+                platformdirs.user_data_dir(
+                    "awdur", appauthor="swyddfa", ensure_exists=True
+                )
+            )
+        elif not data_dir.exists():
+            data_dir.mkdir(parents=True)
+
+        return cls(logger=setup_logging(args.get("verbosity", 0)), data_dir=data_dir)
 
 
 def call(fn: Callable[..., T], args: dict[str, Any]) -> T:
@@ -49,7 +76,9 @@ def register_directives():
     template = define_template(CodeBlock)
 
     directives.register_directive("code", codeblock)
-    directives.register_directive("awdur:project-tree", ProjectTreeDirective)
+    directives.register_directive("awdur:file", FileDirective)
+    directives.register_directive("awdur:files", FileDirective)
+    directives.register_directive("awdur:project", ProjectDirective)
     directives.register_directive("awdur:template", template)
 
 
@@ -59,23 +88,23 @@ def get_parser() -> argparse.ArgumentParser:
     )
     _ = parser.add_argument("--debug", action="store_true", help="enable debug mode")
 
-    subcommands = parser.add_subparsers(title="commands")
+    _ = parser.add_argument(
+        "-v",
+        action="count",
+        dest="verbosity",
+        default=0,
+        help="increase logging verbosity",
+    )
 
-    extract_cmd = subcommands.add_parser("extract")
-    extract_cmd.set_defaults(run=extract)
-    _ = extract_cmd.add_argument(
-        "source", type=pathlib.Path, help="the source file to extract code from"
+    _ = parser.add_argument(
+        "--data-dir",
+        default=None,
+        type=pathlib.Path,
+        help="override the directory used to store persistent data",
     )
-    _ = extract_cmd.add_argument(
-        "-p",
-        "--project",
-        dest="project_name",
-        default="default",
-        help="the code project to extract",
-    )
-    _ = extract_cmd.add_argument(
-        "-o", "--output", type=pathlib.Path, help="the location to write to"
-    )
+
+    subcommands = parser.add_subparsers(title="commands")
+    register_extract(subcommands)
 
     render_cmd = subcommands.add_parser("render")
     render_cmd.set_defaults(run=render)
@@ -89,14 +118,21 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def setup_logging():
+LOG_LEVELS = [logging.INFO, logging.DEBUG]
+LOG_FORMATS = ["[%(name)s]: %(message)s"]
+
+
+def setup_logging(verbosity: int) -> logging.Logger:
     """Configure logging for the cli."""
+    log_level = LOG_LEVELS[min(verbosity, len(LOG_LEVELS) - 1)]
+    log_fmt = LOG_FORMATS[min(verbosity, len(LOG_FORMATS) - 1)]
+
     logger = logging.getLogger("awdur")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(log_level)
 
     handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    handler.setLevel(log_level)
+    handler.setFormatter(logging.Formatter(log_fmt))
 
     logger.addHandler(handler)
     return logger
@@ -113,7 +149,7 @@ def main(argv: Sequence[str] | None = None):
     arguments = vars(args)
     command: Callable[..., Any] = arguments.pop("run")
 
-    arguments["logger"] = logger = call(setup_logging, arguments)
+    arguments["context"] = context = Context.fromargs(arguments)
 
     register_directives()
 
@@ -123,7 +159,7 @@ def main(argv: Sequence[str] | None = None):
         # Don't debug exiting from the debugger.
         pass
     except Exception as exc:
-        logger.error("%s", exc)
+        context.logger.error("%s", exc)
 
         if arguments.get("debug", False):
             import pdb
