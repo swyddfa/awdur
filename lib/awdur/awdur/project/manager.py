@@ -430,7 +430,8 @@ class ProjectManager:
 
         with self.dbcon() as db:
             cursor = db.execute(
-                "SELECT projects FROM awdur_data_revisions ORDER BY rid DESC LIMIT 1",
+                "SELECT value FROM awdur_properties WHERE tagname='projects' "
+                "ORDER BY rid DESC LIMIT 1",
             )
             if (row := cursor.fetchone()) is not None and (value := row[0]) is not None:
                 return value.split(",")
