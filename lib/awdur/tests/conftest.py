@@ -5,7 +5,18 @@ import shutil
 
 import pytest
 
+DATA_DIR = pathlib.Path(__file__).parent / "data"
 EXAMPLES_DIR = pathlib.Path(__file__).parent / "../../../examples"
+
+
+@pytest.fixture(scope="session")
+def testdata():
+    """Return a helper function for returning paths to test data."""
+
+    def fn(*parts: str):
+        return pathlib.Path(DATA_DIR, *parts)
+
+    return fn
 
 
 @pytest.fixture(scope="function")
