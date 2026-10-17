@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import stat
 import subprocess
 import sys
 
@@ -141,8 +142,8 @@ def test_extract_multiple_projects_default(workspace: pathlib.Path):
     # check hello.py
     output = workspace / "multiple-projects" / "hello.py"
     assert output.exists()
-
-    assert 'print("Hello, World!")\n' == output.read_text()
+    assert stat.S_IMODE(output.stat().st_mode) == 0o755  # file should be executable.
+    assert '#!/usr/bin/env python\nprint("Hello, World!")\n' == output.read_text()
 
 
 @pytest.mark.parametrize("workspace", ["multiple-projects"], indirect=True)

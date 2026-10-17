@@ -282,6 +282,5 @@ CREATE VIEW awdur_project_revisions AS
 -- gives us a timeline for evolution of the internal data structure.
 CREATE VIEW awdur_data_revisions AS
   SELECT
-    rid,
-    max(CASE WHEN tagname = 'projects' THEN VALUE END) as projects
-  FROM awdur_properties
+    rid
+  FROM awdur_properties WHERE tagname='source' and value='awdur';
