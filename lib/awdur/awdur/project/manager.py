@@ -51,6 +51,7 @@ from .db import User
 if typing.TYPE_CHECKING:
     from typing import Any
 
+    from .db import FilePermissions
     from .export import ProjectExporter
 
 UTC = dt.timezone.utc
@@ -162,6 +163,7 @@ class ProjectManager:
         self,
         filename: str,
         project: str,
+        permissions: FilePermissions | None = None,
         template: str | None = None,
         revision: str = "1",
     ) -> Blob | None:
@@ -177,6 +179,9 @@ class ProjectManager:
         project
            The project name
 
+        permissions
+           If set, set the file's permissions
+
         template
            If set, use the given template name
 
@@ -186,6 +191,9 @@ class ProjectManager:
         lines: list[str] = []
         if template is not None:
             lines.append(f"template: {template}")
+
+        if permissions is not None:
+            lines.append(f"permissions: {permissions}")
 
         if (content := "\n".join(lines)) == "":
             # Nothing to do
@@ -498,8 +506,11 @@ class ProjectManager:
                         comment=comment, date=date, user=self.user.login
                     )
 
+                # Create the 'transaction' for this revision
                 project_manifest.add_tag(Tag("+", "rev", "*", rev))
                 rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(db)
+
+                # Render each file in this revision
                 for filename, file in fileset:
                     slots, settings = file.resolve(db)
                     context: dict[str, Any] = {
@@ -519,7 +530,11 @@ class ProjectManager:
                         blob = blob.insert(db)
                         self.logger.debug("F %s, %r, new blob", filename, blob)
 
-                    project_manifest.add_file(pathlib.Path(filename), blob)
+                    project_manifest.add_file(
+                        pathlib.Path(filename),
+                        blob,
+                        permissions=settings.get("permissions"),
+                    )
 
                 # Commit the revision
                 blob = project_manifest.toblob(rcvfrom.rcvid).insert(db)
@@ -534,13 +549,20 @@ class ProjectManager:
         # The majority of the fossil db can be derived from the sequence of artifacts.
         # Rather than attempt to keep up with implementation details of the tool, just
         # run the command provided for this purpose
-        self.logger.info("Rebuilding metadata...")
-        result = subprocess.run(["fossil", "rebuild", "--stats", str(self.dbpath)])
+        self.logger.debug("Rebuilding metadata...")
+        result = subprocess.run(
+            ["fossil", "rebuild", "--stats", str(self.dbpath)], capture_output=True
+        )
+        if result.returncode != 0:
+            self.logger.error(result.stderr.decode("utf8"))
+            raise RuntimeError("Unable to rebuild metadata")
+        else:
+            self.logger.debug(result.stdout.decode("utf8"))
 
 
 @dataclasses.dataclass
-class ProjectFile:
-    """Represents a file"""
+class FileSpec:
+    """Holds the necessary information required to render a file within a project."""
 
     slots: dict[str, list[tuple[str, str]]] = dataclasses.field(
         default_factory=functools.partial(defaultdict, list)
@@ -579,8 +601,8 @@ class ProjectFile:
 class ProjectFileSet:
     """Represents a tree of files."""
 
-    files: dict[str, ProjectFile] = dataclasses.field(
-        default_factory=functools.partial(defaultdict, ProjectFile)
+    files: dict[str, FileSpec] = dataclasses.field(
+        default_factory=functools.partial(defaultdict, FileSpec)
     )
 
     def __getitem__(self, key: str):

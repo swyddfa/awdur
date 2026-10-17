@@ -155,7 +155,10 @@ class UpdateProjectTransform(Transform):
                 continue
 
             _ = manager.set_file_properties(
-                filename, project_name, template=node.attributes.get("use-template")
+                filename,
+                project_name,
+                permissions=node.attributes.get("permissions"),
+                template=node.attributes.get("use-template"),
             )
 
     def update_codeblocks(self, manager: ProjectManager):

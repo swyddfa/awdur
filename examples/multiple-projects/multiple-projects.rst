@@ -13,13 +13,17 @@ Where no project name is given, the name ``default`` will be used as... well, th
 
 .. awdur:project::
 
-The code below is a valid "Hello, World!" application in Python.
+   .. awdur:file:: hello.py
+      :permissions: x
+
+Setting ``:permissions: x`` above will make ``hello.py`` executable when it is exported.
+The code below is contains the file's implementation.
 
 .. code:: python
    :in-file: hello.py
 
+   #!/usr/bin/env python
    print("Hello, World!")
-
 
 Shapes
 ------

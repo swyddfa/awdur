@@ -8,6 +8,7 @@ from docutils.parsers.rst import directives
 
 if typing.TYPE_CHECKING:
     from typing import Any
+    from typing import Callable
 
 
 def define_codeblock(base: type[Directive]) -> type[Directive]:
@@ -135,25 +136,9 @@ class project(nodes.General, nodes.Element):
     )
 
 
-class file(nodes.General, nodes.Element):
-    """A marker node used to signal where file info should be inserted
-    into a document."""
-
-    user_attributes: tuple[str, ...] = (
-        "in-project",
-        "use-template",
-        # TODO: do any of these make sense?
-        # "in-file",
-        # "in-slot",
-        # "at-revision",
-    )
-
-    valid_attributes: tuple[str, ...] = (
-        # valid_attributes not present on all docutils versions
-        getattr(nodes.Element, "valid_attributes", tuple())
-        + user_attributes
-        + ("filename",)
-    )
+def file_permissions(value: str) -> str:
+    """Validate that the value given is a valid file permission"""
+    return directives.choice(value, ("w", "x"))
 
 
 class FileDirective(Directive):
@@ -164,14 +149,16 @@ class FileDirective(Directive):
 
     has_content = True
 
-    option_spec: dict[str, Any] = {
-        a: directives.unchanged for a in file.user_attributes
+    option_spec: dict[str, Callable[[str], str]] = {
+        "in-project": directives.unchanged,
+        "use-template": directives.unchanged,
+        "permissions": file_permissions,
     }
 
     def run(self):
         file_node = file(filename=self.arguments[0])
 
-        for attr in file_node.user_attributes:
+        for attr in self.option_spec:
             if (attr_value := self.options.get(attr)) is not None:
                 file_node.attributes[attr] = attr_value
 
@@ -179,3 +166,17 @@ class FileDirective(Directive):
         self.state.nested_parse(self.content, self.content_offset, container)
 
         return [file_node, *container.children]
+
+
+class file(nodes.General, nodes.Element):
+    """A marker node used to signal where file info should be inserted
+    into a document."""
+
+    user_attributes: tuple[str, ...] = tuple(FileDirective.option_spec.keys())
+
+    valid_attributes: tuple[str, ...] = (
+        # valid_attributes not present in all docutils versions
+        getattr(nodes.Element, "valid_attributes", tuple())
+        + user_attributes
+        + ("filename",)
+    )
