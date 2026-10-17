@@ -12,7 +12,7 @@ packages = ["awdur"]
 matrix-name-format = "{variable}{value}"
 
 [[envs.hatch-test.matrix]]
-python = ["3.11", "3.12", "3.13", "3.14"]
+python = ["3.12", "3.13", "3.14", "3.15"]
 sphinx = ["NO", "8", "9"]
 
 [envs.hatch-test.overrides]
