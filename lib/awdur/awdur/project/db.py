@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+import enum
 import hashlib
+import itertools
+import logging
 import operator
 import os
 import pathlib
@@ -18,15 +21,136 @@ if typing.TYPE_CHECKING:
 
     FilePermissions = Literal["w", "x", "l"]
 
-ASCII_SPACE = chr(0x20)
-ASCII_NL = chr(0x0A)
-ASCII_BSLASH = chr(0x5C)
 
-ESC_SPACE = chr(0x5C) + chr(0x73)
-ESC_NL = chr(0x5C) + chr(0x6E)
-ESC_BSLASH = 2 * ASCII_BSLASH
+class ASCII(enum.IntEnum):
+    """Names for 'interesting' ascii character values used in fossil's data formats."""
+
+    NEWLINE = 0x0A
+    SPACE = 0x20
+    COMMA = 0x2C
+    COLON = 0x3A
+    SEMICOLON = 0x3B
+    AT = 0x40
+    BACKSLASH = 0x5C
+
+    N = 0x6E
+    S = 0x73
+
+    @staticmethod
+    def escape(v: ASCII) -> str:
+        """Escape the given ascii character"""
+        match v:
+            case ASCII.SPACE:
+                v = ASCII.S
+            case ASCII.NEWLINE:
+                v = ASCII.N
+            case ASCII.BACKSLASH:
+                v = v
+            case _:
+                raise ValueError(f"Unable to escape character: {v!r}")
+
+        return chr(ASCII.BACKSLASH) + chr(v)
+
 
 UTC = dt.timezone.utc
+
+
+@typing.final
+@dataclasses.dataclass
+class Artifact:
+    """Represents an item from the ``artifact`` view."""
+
+    rid: int | None = dataclasses.field(default=None)
+    """The artifact's row id"""
+
+    rcvid: int | None = dataclasses.field(default=None)
+    """The rcvid."""
+
+    size: int | None = dataclasses.field(default=None)
+    """The size of the uncompressed artifact"""
+
+    atype: int | None = dataclasses.field(default=None)
+    """The type of artifact (currently always 1)"""
+
+    srcid: int | None = dataclasses.field(default=None)
+    """If this is a delta artifact, this stores the base blob's rid."""
+
+    uuid: str | None = dataclasses.field(default=None)
+    """The artifact's hash"""
+
+    content: bytes | None = dataclasses.field(default=None)
+    """The content itself."""
+
+    _text: str | None = dataclasses.field(default=None, init=False)
+    """Internal cache of the uncompressed text of the blob, if known"""
+
+    def __repr__(self):
+        return f"Artifact<{self.uuid}; {self.size} bytes>"
+
+    @classmethod
+    def find(
+        cls, db: sqlite3.Connection, *, rid: int | None = None, uuid: str | None = None
+    ):
+        """Find an artifact given its rid or uuid, if artifact is a delta, the delta
+        will be automatically applied."""
+
+        if rid is not None:
+            query = "SELECT * FROM artifact WHERE rid = ?"
+            params = (rid,)
+
+        elif uuid is not None:
+            query = "SELECT * FROM artifact WHERE hash = ?"
+            params = (uuid,)
+
+        else:
+            raise ValueError("Either rid or uuid must be provided")
+
+        cursor = db.execute(query, params)
+        if (row := cursor.fetchone()) is None:
+            return None
+
+        artifact = cls.fromdb(*row)
+
+        # Is this a delta blob?
+        if (srcid := artifact.srcid) is not None:
+            if (baseline := Blob.find(db, rid=srcid)) is None:
+                raise ValueError(
+                    f"Unable to resolve artifact, baseline blob rid={artifact.srcid} not found"
+                )
+
+            base_blob = zlib.decompress(baseline.content[4:])
+            delta_blob = zlib.decompress(artifact.content[4:])
+            artifact.content = apply_delta(base_blob, delta_blob)
+
+        else:
+            artifact.content = zlib.decompress(artifact.content[4:])
+
+        return artifact
+
+    @classmethod
+    def fromdb(
+        cls,
+        rid: int,
+        rcvid: int,
+        size: int,
+        atype: int,
+        srcid: int | None,
+        uuid: str,
+        content: bytes,
+    ):
+        return cls(rid, rcvid, size, atype, srcid, uuid, content)
+
+    @property
+    def text(self) -> str:
+        """Return the uncompressed text held in a blob."""
+        if self._text is not None:
+            return self._text
+
+        if self.content is None:
+            return ""
+
+        self._text = self.content.decode("utf8")
+        return self._text
 
 
 @typing.final
@@ -62,11 +186,11 @@ class Blob:
         """Find a blob given its rid or uuid"""
 
         if rid is not None:
-            query = "SELECT * FROM BLOB WHERE rid = ?"
+            query = "SELECT * FROM blob WHERE rid = ?"
             params = (rid,)
 
         elif uuid is not None:
-            query = "SELECT * FROM BLOB WHERE uuid = ?"
+            query = "SELECT * FROM blob WHERE uuid = ?"
             params = (uuid,)
 
         else:
@@ -264,7 +388,7 @@ class Manifest:
         return f"Manifest<{date}: {comment}; {len(self.files)} files>"
 
     @classmethod
-    def fromblob(cls, blob: Blob):
+    def fromblob(cls, blob: Artifact | Blob):
         """Construct a manifest instance from a blob"""
         manifest = cls.fromtext(blob.text)
         manifest.uuid = blob.uuid
@@ -396,7 +520,11 @@ class Manifest:
         # Calculate the repo checksum
         rchecksum = hashlib.md5()
         for _, file in sorted(self.files.items(), key=operator.itemgetter(0)):
-            item = f"{file.filename}{ASCII_SPACE}{len(file.blob.text)}{ASCII_NL}{file.blob.text}"
+            item = (
+                f"{file.filename}{chr(ASCII.SPACE)}"
+                f"{len(file.blob.text)}{chr(ASCII.NEWLINE)}"
+                f"{file.blob.text}"
+            )
             rchecksum.update(item.encode())
 
         # If not set, assume we are computing it fresh for a build()
@@ -649,12 +777,12 @@ def escape_filename(filepath: os.PathLike[str]) -> str:
             f"Invalid path: {filename!r} path must be relative to project root"
         )
 
-    if ASCII_NL in filename or ASCII_BSLASH in filename:
+    if chr(ASCII.NEWLINE) in filename or chr(ASCII.BACKSLASH) in filename:
         raise ValueError(
             f"Invalid path: {filename!r}, newlines and backslashes are not permitted"
         )
 
-    return filename.replace(ASCII_SPACE, ESC_SPACE)
+    return filename.replace(chr(ASCII.SPACE), ASCII.escape(ASCII.SPACE))
 
 
 def escape_text(text: str) -> str:
@@ -670,9 +798,9 @@ def escape_text(text: str) -> str:
        -- `C card <https://fossil-scm.org/home/doc/trunk/www/fileformat.wiki#manifest>`__
     """
     return (
-        text.replace(ASCII_BSLASH, ESC_BSLASH)
-        .replace(ASCII_SPACE, ESC_SPACE)
-        .replace(ASCII_NL, ESC_NL)
+        text.replace(chr(ASCII.BACKSLASH), ASCII.escape(ASCII.BACKSLASH))
+        .replace(chr(ASCII.SPACE), ASCII.escape(ASCII.SPACE))
+        .replace(chr(ASCII.NEWLINE), ASCII.escape(ASCII.NEWLINE))
     )
 
 
@@ -689,9 +817,9 @@ def unescape_text(text: str) -> str:
        -- `C card <https://fossil-scm.org/home/doc/trunk/www/fileformat.wiki#manifest>`__
     """
     return (
-        text.replace(ESC_BSLASH, ASCII_BSLASH)
-        .replace(ESC_SPACE, ASCII_SPACE)
-        .replace(ESC_NL, ASCII_NL)
+        text.replace(ASCII.escape(ASCII.BACKSLASH), chr(ASCII.BACKSLASH))
+        .replace(ASCII.escape(ASCII.SPACE), chr(ASCII.SPACE))
+        .replace(ASCII.escape(ASCII.NEWLINE), chr(ASCII.NEWLINE))
     )
 
 
@@ -709,3 +837,105 @@ def format_date(dt: dt.datetime) -> str:
        - YYYY-MM-DDTHH:MM:SS.SSS
     """
     return dt.isoformat("T", "milliseconds").replace("+00:00", "")
+
+
+def apply_delta(
+    baseline: bytes, delta: bytes, logger: logging.Logger | None = None
+) -> bytes:
+    """Apply the given fossil delta to the given baseline
+
+    see: https://fossil-scm.org/home/doc/trunk/www/delta_format.wiki
+    """
+    logger = logger or logging.getLogger(__name__)
+
+    point = delta.find(ASCII.NEWLINE)
+    header, delta = delta[:point], delta[point + 1 :]
+    target_length = b64_decode(header)
+    logger.debug("header: %r, target: %s bytes", header, target_length)
+
+    chunks: list[bytes] = []
+    buffer: list[int] = []
+
+    # Borrow mark and point terminology from Emacs
+    point = 0
+    checksum = None
+
+    while point < len(delta):
+        match b := delta[point]:
+            case ASCII.COLON:
+                length = b64_decode(buffer)
+                buffer.clear()
+
+                literal = delta[point + 1 : point + length + 1]
+                logger.debug("literal: %r bytes, %r ", length, literal)
+
+                chunks.append(literal)
+                buffer.clear()
+                point += length + 1
+
+            case ASCII.AT:
+                length = b64_decode(buffer)
+                buffer.clear()
+
+                mark = point + 1
+                point = mark + delta[mark:].index(ASCII.COMMA)
+                offset = b64_decode(delta[mark:point])
+                logger.debug("range: %r bytes, %r offset", length, offset)
+
+                chunks.append(baseline[offset : offset + length])
+                point += 1
+
+            case ASCII.SEMICOLON:
+                if point != len(delta) - 1:
+                    raise ValueError(
+                        "Failed to apply delta, trailer found before end of blob"
+                    )
+
+                checksum = b64_decode(buffer)
+                buffer.clear()
+                point += 1
+
+            case _:
+                point += 1
+                buffer.append(b)
+
+    # Validate the blob
+    if checksum is None:
+        raise ValueError("Failed to apply delta, incomplete payload")
+
+    content = b"".join(chunks)
+    if checksum != (actual := delta_checksum(content)):
+        raise ValueError(
+            f"Failed to apply delta, checksum mismatch: {checksum} != {actual}"
+        )
+    return content
+
+
+B64 = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~"
+TOP_BIT = 1 << 31
+
+
+def b64_decode(value: list[int] | bytes, signed: bool = False) -> int:
+    """Decode a base64 encoded 32bit int."""
+    v = 0
+    for shift, b in enumerate(reversed(value)):
+        v += B64.index(b) << (shift * 6)
+
+    # Negative numbers will have the top-bit set
+    if signed and (v & TOP_BIT) == TOP_BIT:
+        v -= 1 << 32
+
+    return v
+
+
+def delta_checksum(content: bytes) -> int:
+    """Calculate the "delta checksum" of the given blob"""
+    value = 0
+
+    if (rem := len(content) % 4) != 0:
+        content = b"".join([content, b"\x00" * (4 - rem)])
+
+    for b1, b2, b3, b4 in itertools.batched(content, n=4, strict=True):
+        value += (b1 << 24) + (b2 << 16) + (b3 << 8) + b4
+
+    return value & 0xFFFFFFFF

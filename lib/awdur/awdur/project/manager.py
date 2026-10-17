@@ -40,6 +40,7 @@ from jinja2 import Environment
 from jinja2 import Template
 from jinja2 import TemplateNotFound
 
+from .db import Artifact
 from .db import Blob
 from .db import Config
 from .db import Manifest
@@ -327,7 +328,7 @@ class ProjectManager:
             self.logger.debug("Starting first update")
         else:
             # Derive from latest manifest
-            if (mblob := Blob.find(self.db, rid=rid)) is None:
+            if (mblob := Artifact.find(self.db, rid=rid)) is None:
                 raise RuntimeError(f"Unable to load manifest blob rid={rid}")
 
             previous = Manifest.fromblob(mblob)
@@ -414,7 +415,7 @@ class ProjectManager:
             if (rid := self.get_data_version()) is None:
                 raise RuntimeError("Unable to export project, no projects defined")
 
-            if (mblob := Blob.find(db, rid=rid)) is None:
+            if (mblob := Artifact.find(db, rid=rid)) is None:
                 raise RuntimeError(
                     f"Unable to export project, failed to load manifest blob rid={rid}"
                 )
@@ -555,7 +556,7 @@ class ProjectFile:
 
         for slotname, uuids in self.slots.items():
             for idx, uuid in uuids:
-                if (blob := Blob.find(db, uuid=uuid)) is None:
+                if (blob := Artifact.find(db, uuid=uuid)) is None:
                     raise RuntimeError(f"Unable resolve blob {uuid!r}")
 
                 slots.setdefault(slotname, []).append((idx, blob.text))
@@ -563,7 +564,7 @@ class ProjectFile:
         settings: dict[str, str] = {}
         # Settings should be sorted in priority order!
         for uuid in self.settings:
-            if (blob := Blob.find(db, uuid=uuid)) is None:
+            if (blob := Artifact.find(db, uuid=uuid)) is None:
                 raise RuntimeError(f"Unable resolve blob {uuid!r}")
 
             for line in blob.text.splitlines():
@@ -721,7 +722,7 @@ class ProjectTemplateLoader(BaseLoader):
 
             raise TemplateNotFound(template)
 
-        if (blob := Blob.find(self.db, uuid=file.blob.uuid)) is None:
+        if (blob := Artifact.find(self.db, uuid=file.blob.uuid)) is None:
             raise TemplateNotFound(template)
 
         self._templates[template] = tmpl = (blob.text, None, None)
