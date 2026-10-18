@@ -470,7 +470,7 @@ class ProjectManager:
             cursor = db.execute(
                 "SELECT rid FROM awdur_project_revisions "
                 "WHERE project = ? AND rev LIKE ? "
-                "ORDER BY rev DESC LIMIT 1",
+                "ORDER BY rev, rid DESC LIMIT 1",
                 (project, revision or "%"),
             )
             if (row := cursor.fetchone()) is not None:
