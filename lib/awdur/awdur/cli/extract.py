@@ -77,6 +77,7 @@ def extract(
     )
 
     manager = ProjectManager(
+        clear_cache=context.clear_cache,
         data_dir=get_project_dir(context.data_dir, source),
         logger=context.logger,
     )
@@ -103,8 +104,9 @@ def extract(
         if output == source:
             raise ValueError("Please provide a destination")
 
-    exporter = EXPORTERS[format]
-    manager.export(project_name, exporter(logger=context.logger), output)
+    # exporter = EXPORTERS[format]
+    exporter = DirectoryExporter(logger=context.logger, existing_files="overwrite")
+    manager.export(project_name, exporter, output)
 
 
 def register_extract(subcommands: argparse._SubParsersAction):
@@ -112,6 +114,12 @@ def register_extract(subcommands: argparse._SubParsersAction):
     extract_cmd.set_defaults(run=extract)
     _ = extract_cmd.add_argument(
         "source", type=pathlib.Path, help="the source file to extract code from"
+    )
+    _ = extract_cmd.add_argument(
+        "-c",
+        "--clear-cache",
+        action="store_true",
+        help="clear the cache and perform a fresh build",
     )
     _ = extract_cmd.add_argument(
         "-p",
@@ -123,7 +131,7 @@ def register_extract(subcommands: argparse._SubParsersAction):
     _ = extract_cmd.add_argument(
         "-f",
         "--format",
-        choices=("directory"),
+        choices=("directory",),
         default="directory",
         help="the format to export the project in",
     )

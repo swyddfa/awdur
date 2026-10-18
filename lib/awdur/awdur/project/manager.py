@@ -66,6 +66,7 @@ class ProjectManager:
         self,
         *,
         data_dir: pathlib.Path | None = None,
+        clear_cache: bool = True,
         logger: logging.Logger | None = None,
         username: str | None = None,
     ):
@@ -86,7 +87,9 @@ class ProjectManager:
         self.db: sqlite3.Connection | None = None
         """The connection to the database, if it's currenly open."""
 
-        self.user: User = self._init_db(username or os.environ.get("USER", "awdur"))
+        self.user: User = self._init_db(
+            username or os.environ.get("USER", "awdur"), clear_cache
+        )
         """The user account to use."""
 
     def __getstate__(self) -> object:
@@ -99,10 +102,13 @@ class ProjectManager:
         del state["db"]
         return state
 
-    def _init_db(self, username: str) -> User:
+    def _init_db(self, username: str, clear_cache: bool) -> User:
         """Initialize the db if needed and return the user's account record."""
 
-        existing_db = self.dbpath.exists()
+        if (existing_db := self.dbpath.exists()) and clear_cache:
+            self.dbpath.unlink()
+            existing_db = False
+
         self.logger.debug("Connecting to %r", self.dbpath.as_uri())
         db = sqlite3.connect(self.dbpath)
 

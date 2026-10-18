@@ -40,6 +40,9 @@ class Context:
     data_dir: pathlib.Path
     """The path at which to store persistent data."""
 
+    clear_cache: bool
+    """If set, indicates any cached data should be cleared."""
+
     @classmethod
     def fromargs(cls, args: dict[str, Any]):
         if (data_dir := args.get("data_dir")) is None:
@@ -51,7 +54,11 @@ class Context:
         elif not data_dir.exists():
             data_dir.mkdir(parents=True)
 
-        return cls(logger=setup_logging(args.get("verbosity", 0)), data_dir=data_dir)
+        return cls(
+            logger=setup_logging(args.get("verbosity", 0)),
+            data_dir=data_dir,
+            clear_cache=args.get("clear_cache", False),
+        )
 
 
 def call(fn: Callable[..., T], args: dict[str, Any]) -> T:
@@ -119,7 +126,7 @@ def get_parser() -> argparse.ArgumentParser:
 
 
 LOG_LEVELS = [logging.INFO, logging.DEBUG]
-LOG_FORMATS = ["[%(name)s]: %(message)s"]
+LOG_FORMATS = ["%(message)s", "[%(name)s]: %(message)s"]
 
 
 def setup_logging(verbosity: int) -> logging.Logger:
