@@ -88,14 +88,10 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
     builder = app.builder
 
     # Look for a project that corresponds to the builder name.
-    project_name = f"sphinx:{builder.name}"
     manager: ProjectManager = app.env.settings["awdur_project_manager"]
-
-    # The behavior doesn't quite line up with how I think about it, but `fossil open --force`
-    # forces fossil to use the dir we say, and generate the files that are included in the
-    # exported project.
-    exporter = DirectoryExporter(logger=manager.logger, existing_files="overwrite")
-    manager.export(project_name, exporter, pathlib.Path(builder.outdir))
+    if (project_name := f"sphinx:{builder.name}") in manager.get_project_names():
+        exporter = DirectoryExporter(logger=manager.logger, existing_files="overwrite")
+        manager.export(project_name, exporter, pathlib.Path(builder.outdir))
 
 
 def no_op(self, node): ...

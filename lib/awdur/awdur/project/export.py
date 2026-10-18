@@ -36,14 +36,14 @@ class DirectoryExporter:
         """Export the project to the given location."""
 
         if (rid := manager.get_project_version(project)) is None:
-            self.logger.debug(
-                "Project %r is not defined or has not been rendered", project
+            self.logger.error(
+                "Unable to export project %r, project does not exist", project
             )
             return
 
         if (blob := manager.get_blob(rid=rid)) is None:
-            self.logger.debug(
-                "Project %r is not defined or has not been rendered", project
+            self.logger.error(
+                "Unable to export project %r, project does not exist", project
             )
             return
 
