@@ -12,7 +12,7 @@ from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
 
 from awdur.project import DirectoryExporter
-from awdur.project import ProjectManager
+from awdur.project import RepoManager
 from awdur.writers import SourceCodeWriter
 
 if typing.TYPE_CHECKING:
@@ -76,7 +76,7 @@ def extract(
         source_class=io.FileInput,
     )
 
-    manager = ProjectManager(
+    manager = RepoManager(
         clear_cache=context.clear_cache,
         data_dir=get_project_dir(context.data_dir, source),
         logger=context.logger,

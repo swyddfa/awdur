@@ -1,9 +1,7 @@
-from .db import Blob
 from .export import DirectoryExporter
-from .manager import ProjectManager
+from .repo import RepoManager
 
 __all__ = (
-    "Blob",
     "DirectoryExporter",
-    "ProjectManager",
+    "RepoManager",
 )

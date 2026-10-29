@@ -9,7 +9,7 @@ from docutils.core import Publisher
 from docutils.parsers import get_parser_class
 from docutils.readers import get_reader_class
 
-from awdur.project import ProjectManager
+from awdur.project import RepoManager
 from awdur.writers import HTMLWriter
 
 if typing.TYPE_CHECKING:
@@ -47,7 +47,7 @@ def render(
     publisher.process_programmatic_settings(
         settings_spec=None,
         settings_overrides={
-            "awdur_project_manager": ProjectManager(logger=context.logger)
+            "awdur_project_manager": RepoManager(logger=context.logger)
         },
         config_section=None,
     )

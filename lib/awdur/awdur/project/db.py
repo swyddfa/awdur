@@ -14,12 +14,16 @@ import pathlib
 import struct
 import typing
 import zlib
+from re import escape
 
 if typing.TYPE_CHECKING:
     import sqlite3
+    from collections.abc import Generator
     from typing import Literal
 
     FilePermissions = Literal["w", "x", "l"]
+    FileStatus = Literal["created", "updated", "unchanged"]
+    TagType = Literal["+", "*", "-"]
 
 
 class ASCII(enum.IntEnum):
@@ -154,26 +158,26 @@ class Artifact:
 
 
 @typing.final
-@dataclasses.dataclass
+@dataclasses.dataclass(repr=False)
 class Blob:
     """Represents a record from the ``blob`` table."""
 
-    rid: int | None = dataclasses.field(default=None)
+    rid: int = dataclasses.field(default=-1)
     """The blob's row id"""
 
-    rcvid: int | None = dataclasses.field(default=None)
+    rcvid: int = dataclasses.field(default=-1)
     """The rcvid."""
 
-    size: int | None = dataclasses.field(default=None)
+    size: int = dataclasses.field(default=0)
     """The size of the uncompressed blob"""
 
-    uuid: str | None = dataclasses.field(default=None)
+    uuid: str = dataclasses.field(default="")
     """The blob's hash"""
 
-    content: bytes | None = dataclasses.field(default=None)
+    content: bytes = dataclasses.field(default=b"")
     """The content itself."""
 
-    _text: str | None = dataclasses.field(default=None, init=False)
+    _text: str = dataclasses.field(default="", init=False)
     """Internal cache of the uncompressed text of the blob, if known"""
 
     def __repr__(self):
@@ -225,7 +229,7 @@ class Blob:
         size = len(bcontent)
         header = struct.pack(">I", size)
 
-        blob = cls(None, rcvid, size, uuid, header + data)
+        blob = cls(-1, rcvid, size, uuid, header + data)
         blob._text = content
 
         return blob
@@ -233,10 +237,10 @@ class Blob:
     @property
     def text(self) -> str:
         """Return the uncompressed text held in a blob."""
-        if self._text is not None:
+        if self._text != "":
             return self._text
 
-        if self.content is None:
+        if self.content == b"":
             return ""
 
         self._text = zlib.decompress(self.content[4:]).decode("utf8")
@@ -251,7 +255,7 @@ class Config:
     name: str
     value: str
     mtime: dt.datetime = dataclasses.field(
-        default_factory=lambda: dt.datetime.now(tz=UTC)
+        default_factory=lambda: dt.datetime.now(tz=UTC), repr=False
     )
 
     @classmethod
@@ -308,8 +312,7 @@ class Event:
         return event
 
 
-@typing.final
-@dataclasses.dataclass
+@dataclasses.dataclass(repr=False)
 class Manifest:
     """Represents a manifest entry corresponding with a check-in."""
 
@@ -321,19 +324,17 @@ class Manifest:
         filename: str
         """The filepath of the file, relative to the repo root."""
 
-        blob: Blob
+        blob: str
         """The blob holding the file's contents"""
 
-        permissions: FilePermissions | None = dataclasses.field(
-            default=None, kw_only=True
-        )
+        permissions: FilePermissions = dataclasses.field(default="w", kw_only=True)
         """The permissions to assign the file."""
 
         old_filename: str | None = dataclasses.field(default=None, kw_only=True)
         """If the file was renamed, this is the previous name."""
 
         def __str__(self):
-            parts = ["F", self.filename, self.blob.uuid]
+            parts = ["F", self.filename, self.blob]
 
             if self.permissions:
                 parts.append(self.permissions)
@@ -346,7 +347,7 @@ class Manifest:
     baseline: Blob | None = dataclasses.field(default=None, kw_only=True)
     """The baseline manifest, only used for delta manifests."""
 
-    comment: str | None = dataclasses.field(default=None, kw_only=True)
+    comment: str = dataclasses.field(default="", kw_only=True)
     """The check-in comment."""
 
     date: dt.datetime | None = dataclasses.field(default=None, kw_only=True)
@@ -358,8 +359,8 @@ class Manifest:
     mimetype: str | None = dataclasses.field(default=None, kw_only=True)
     """Mime type of the check-in comment"""
 
-    previous: list[str] = dataclasses.field(default_factory=list, kw_only=True)
-    """The previous manifest(s) this one supercedes."""
+    previous: str | None = dataclasses.field(default=None, kw_only=True)
+    """The previous manifest this one supercedes."""
 
     rchecksum: str | None = dataclasses.field(default=None, kw_only=True)
     """Checksum of all files included in check-in"""
@@ -367,38 +368,23 @@ class Manifest:
     tags: list[Tag] = dataclasses.field(default_factory=list, kw_only=True)
     """Tags."""
 
-    user: str | None = dataclasses.field(default=None, kw_only=True)
+    user: str = dataclasses.field(default="", kw_only=True)
     """The user who made the check-in"""
 
     zchecksum: str | None = dataclasses.field(default=None)
     """Checksum of the manifest record itself."""
 
-    uuid: str | None = dataclasses.field(default=None)
-    """The uuid of the this manifest's blob, if known"""
-
     def __repr__(self) -> str:
-        comment = "NO COMMENT"
-        if self.comment:
-            comment = self.comment.splitlines()[0]
-
         date = "NO DATE"
         if self.date:
             date = format_date(self.date)
 
-        return f"Manifest<{date}: {comment}; {len(self.files)} files>"
+        return f"Manifest<{date}: {self.comment}; {len(self.files)} files>"
 
     @classmethod
     def fromblob(cls, blob: Artifact | Blob):
         """Construct a manifest instance from a blob"""
-        manifest = cls.fromtext(blob.text)
-        manifest.uuid = blob.uuid
-        return manifest
-
-    def toblob(self, rcvid: int):
-        """Make a blob from this manifest."""
-        blob = Blob.create(self.build(), rcvid)
-        self.uuid = blob.uuid
-        return blob
+        return cls.fromtext(blob.text)
 
     @classmethod
     def fromtext(cls, text: str):
@@ -419,10 +405,10 @@ class Manifest:
                 case "F":
                     filename, uuid, *rest = value.split(" ")
                     # TODO: Handle permissions, old_filename
-                    manifest.files[filename] = Manifest.File(filename, Blob(uuid=uuid))
+                    manifest.files[filename] = Manifest.File(filename, uuid)
 
                 case "P":
-                    manifest.previous = [p for p in value.split(" ") if p]
+                    manifest.previous = value
 
                 case "R":
                     manifest.rchecksum = value
@@ -446,98 +432,98 @@ class Manifest:
     def add_file(
         self,
         filename: os.PathLike[str],
-        blob: Blob,
-        permissions: FilePermissions | None = None,
+        blob: str,
+        permissions: FilePermissions,
         old_filename: pathlib.Path | None = None,
-    ):
-        """Add a file to the manifest"""
+    ) -> tuple[Manifest.File, FileStatus]:
+        """Add a file to the manifest
+
+        Parameters
+        ----------
+        filename
+           The file's path relative to the root of the repo.
+
+        blob
+           The content's uuid
+
+        permissions
+           The file's permissions
+
+        old_filename
+           If the file was renamed, the previous name for the file.
+
+        Returns
+        -------
+        Manifest.File, FileStatus
+           The file's manifest record and a string indicating if the file is new, changed
+           relative to the previous version or unchanged.
+        """
         fname = escape_filename(filename)
         old_fname = None
 
         if old_filename:
             old_fname = escape_filename(old_filename)
 
-        self.files[fname] = Manifest.File(
+        pending_file = Manifest.File(
             fname, blob, permissions=permissions, old_filename=old_fname
         )
 
+        if (existing_file := self.files.get(fname)) is not None:
+            if existing_file == pending_file:
+                return existing_file, "unchanged"
+            else:
+                self.files[fname] = pending_file
+                return pending_file, "updated"
+        else:
+            self.files[fname] = pending_file
+            return pending_file, "created"
+
+    def get_file(self, filename: os.PathLike[str]) -> Manifest.File | None:
+        """Return the record for the given file if it exists, taking into account any
+        escape sequences."""
+        return self.files.get(escape_filename(filename))
+
+    def find_files(
+        self, *, prefix: str | None = None, contains: str | None = None
+    ) -> Generator[Manifest.File, None, None]:
+        """Find files that match the given criteria.
+
+        Parameters
+        ----------
+        prefix
+           Return files with a filepath matching the given prefix.
+
+        contains
+           Return files with a filepath containing the given value.
+
+        Returns
+        -------
+        Generator[Manifest.File, None, None]
+           A generator yielding matching entries
+        """
+        if prefix is not None:
+            prefix = escape_filename(pathlib.Path(prefix))
+
+        for fpath, file in self.files.items():
+            if prefix is not None and not fpath.startswith(prefix):
+                continue
+
+            if contains is not None and contains not in fpath:
+                continue
+
+            yield file
+
+    def delete_file(self, filename: os.PathLike[str]):
+        """Delete the given file from the manifest."""
+        if (fpath := escape_filename(filename)) in self.files:
+            del self.files[fpath]
+
     def add_tag(self, tag: Tag):
+        """Add a tag to the manifest."""
         self.tags.append(tag)
-
-    def make_delta(self):
-        """Made a delta manifest based on this one"""
-        raise NotImplementedError("TODO: Delta manifests")
-
-    def make_update(
-        self,
-        *,
-        comment: str | None = None,
-        date: dt.datetime | None = None,
-        mimetype: str | None = None,
-        tags: list[Tag] | None = None,
-        user: str | None = None,
-    ):
-        """Create a new full manifest based on this one."""
-
-        if self.uuid is None:
-            raise RuntimeError(
-                "Cannot make update, blob associated with this manifest is not known."
-            )
-
-        return Manifest(
-            baseline=None,  # full manifests cannot have a baseline
-            comment=comment,
-            date=date,
-            files=self.files,  # full manifests should specify every file
-            mimetype=mimetype,
-            previous=[self.uuid],
-            rchecksum=None,  # checksum should be recalculated
-            tags=tags or [],
-            user=user,
-            zchecksum=None,  # checksum should be recalculated
-        )
-
-    def validate(self):
-        """Check to see if we have a valid manifest."""
-
-        if self.comment is None or self.comment == "":
-            raise ValueError("Invalid manifest: a check-in comment is required")
-
-        if self.date is None:
-            raise ValueError("Invalid manifest: a check-in date is required")
-
-        if self.user is None:
-            raise ValueError(
-                "Invalid manifest: a check-in must be associated with a user"
-            )
-
-        for t in self.tags:
-            if t.uuid != "*":
-                raise ValueError(
-                    "Invalid tag: manifest tags must target '*' (i.e. self)"
-                )
-
-        # Calculate the repo checksum
-        rchecksum = hashlib.md5()
-        for _, file in sorted(self.files.items(), key=operator.itemgetter(0)):
-            item = (
-                f"{file.filename}{chr(ASCII.SPACE)}"
-                f"{len(file.blob.text)}{chr(ASCII.NEWLINE)}"
-                f"{file.blob.text}"
-            )
-            rchecksum.update(item.encode())
-
-        # If not set, assume we are computing it fresh for a build()
-        if self.rchecksum is None or self.rchecksum == "":
-            self.rchecksum = rchecksum.hexdigest()
-
-        # Otherwise, check it.
-        elif self.rchecksum != rchecksum.hexdigest():
-            raise ValueError("Invalid manifest: R card inconsitent with repo contents")
 
     def build(self) -> str:
         """Close the manifest by appending the ``Z`` checksum card and return it."""
-        self.validate()
 
         cards: list[str] = [
             f"C {escape_text(self.comment)}",
@@ -548,7 +534,7 @@ class Manifest:
             cards.append(str(file))
 
         if self.previous:
-            cards.append(f"P {' '.join(self.previous)}")
+            cards.append(f"P {self.previous}")
 
         # The rchecksum is optional
         if self.rchecksum is not None:
@@ -626,7 +612,7 @@ class Rcvfrom:
 class Tag:
     """Represents a ``T`` card."""
 
-    type: Literal["+", "*", "-"]
+    type: TagType
     """Indicates the propogation rules for the tag.
 
     - ``+``: One time application to the target artifact.
@@ -823,7 +809,7 @@ def unescape_text(text: str) -> str:
     )
 
 
-def format_date(dt: dt.datetime) -> str:
+def format_date(datetime: dt.datetime) -> str:
     """Format a datetime for inclusion in a fossil record.
 
     .. pull-quote::
@@ -836,7 +822,7 @@ def format_date(dt: dt.datetime) -> str:
        - YYYY-MM-DDTHH:MM:SS
        - YYYY-MM-DDTHH:MM:SS.SSS
     """
-    return dt.isoformat("T", "milliseconds").replace("+00:00", "")
+    return datetime.isoformat("T", "milliseconds").replace("+00:00", "")
 
 
 def apply_delta(

@@ -9,16 +9,14 @@ if typing.TYPE_CHECKING:
     from typing import Literal
     from typing import Protocol
 
-    from . import ProjectManager
+    from . import RepoManager
 
     class ProjectExporter(Protocol):
         """Interface for exporters."""
 
         def __init__(self, logger: logging.Logger | None = None): ...
 
-        def export(
-            self, project: str, manager: ProjectManager, output: pathlib.Path
-        ): ...
+        def export(self, project: str, manager: RepoManager, output: pathlib.Path): ...
 
 
 class DirectoryExporter:
@@ -32,7 +30,7 @@ class DirectoryExporter:
         self.logger = logger or logging.getLogger(__name__)
         self.existing_files = existing_files
 
-    def export(self, project: str, manager: ProjectManager, output: pathlib.Path):
+    def export(self, project: str, manager: RepoManager, output: pathlib.Path):
         """Export the project to the given location."""
 
         if (rid := manager.get_project_version(project)) is None:

@@ -10,7 +10,7 @@ from awdur.transforms import UpdateProjectTransform
 if typing.TYPE_CHECKING:
     from docutils.transforms import Transform
 
-    from awdur.project import ProjectManager
+    from awdur.project import RepoManager
 
 
 class SourceCodeWriter(Writer):

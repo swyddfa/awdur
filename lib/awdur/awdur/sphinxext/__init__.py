@@ -15,7 +15,7 @@ from awdur.directives import define_codeblock
 from awdur.directives import define_template
 from awdur.directives import project
 from awdur.project import DirectoryExporter
-from awdur.project import ProjectManager
+from awdur.project import RepoManager
 from awdur.transforms import RenderProjectTransform
 from awdur.transforms import ResolveProjectMetadataTransform
 from awdur.transforms import UpdateProjectTransform
@@ -39,7 +39,7 @@ def env_get_outdated(
 ) -> Sequence[str]:
     """Setup the project manager instance and start an update cycle."""
 
-    manager = ProjectManager(
+    manager = RepoManager(
         data_dir=pathlib.Path(app.builder.doctreedir),
         logger=getLogger("awdur"),
     )
@@ -57,7 +57,7 @@ def stash_source(app: Sphinx, docname: str, source: list[str]):
 
 def write_started(app: Sphinx, builder):
     """Finalise the update"""
-    manager: ProjectManager = app.env.settings["awdur_project_manager"]
+    manager: RepoManager = app.env.settings["awdur_project_manager"]
     manager.commit_update()
 
 
@@ -88,7 +88,7 @@ def inject_generated_files(app: Sphinx, exc: Exception | None):
     builder = app.builder
 
     # Look for a project that corresponds to the builder name.
-    manager: ProjectManager = app.env.settings["awdur_project_manager"]
+    manager: RepoManager = app.env.settings["awdur_project_manager"]
     if (project_name := f"sphinx:{builder.name}") in manager.get_project_names():
         exporter = DirectoryExporter(logger=manager.logger, existing_files="overwrite")
         manager.export(project_name, exporter, pathlib.Path(builder.outdir))

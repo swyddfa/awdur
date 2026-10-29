@@ -21,6 +21,7 @@ import dataclasses
 import datetime as dt
 import fnmatch
 import functools
+import getpass
 import hashlib
 import itertools
 import logging
@@ -47,11 +48,11 @@ from .db import Manifest
 from .db import Rcvfrom
 from .db import Tag
 from .db import User
+from .manifest import AwdurManifestBuilder
 
 if typing.TYPE_CHECKING:
     from typing import Any
 
-    from .db import FilePermissions
     from .export import ProjectExporter
 
 UTC = dt.timezone.utc
@@ -59,8 +60,37 @@ UTC = dt.timezone.utc
 SCHEMA = pathlib.Path(__file__).parent / "fossil_schema.sql"
 
 
-class ProjectManager:
-    """Manages awdur code projects."""
+@dataclasses.dataclass
+class RepoStats:
+    """Simple datatype to hold the output of the ``fossil rebuild --stats`` command."""
+
+    artifacts: int = dataclasses.field(default=0)
+    """Total count of artifacts in the project."""
+
+    manifests: int = dataclasses.field(default=0)
+    """Count of manifest records."""
+
+    clusters: int = dataclasses.field(default=0)
+    """Count of cluster records."""
+
+    tags: int = dataclasses.field(default=0)
+    """Count of tag records."""
+
+    wikis: int = dataclasses.field(default=0)
+    """Count of wiki pages."""
+
+    attachments: int = dataclasses.field(default=0)
+    """Count of attachments."""
+
+    events: int = dataclasses.field(default=0)
+    """Count of events (I *think* an event is a 'tech note' in this context)."""
+
+    other: int = dataclasses.field(default=0)
+    """Count of 'other' records (e.g. file blobs)."""
+
+
+class RepoManager:
+    """Manages awdur repositories."""
 
     def __init__(
         self,
@@ -73,369 +103,207 @@ class ProjectManager:
         self.logger: logging.Logger = logger or logging.getLogger(__name__)
         """The logger instance to use."""
 
-        self.manifest: Manifest | None = None
+        self.manifest_builder: AwdurManifestBuilder | None = None
         """If set, signals that the project has started an update transaction."""
-
-        self.rcvfrom: Rcvfrom | None = None
-        """If set, indicated the current "transaction" in progress."""
 
         self.dbpath: pathlib.Path = (
             data_dir or pathlib.Path(".").resolve()
         ) / f"awdur.fossil"
         """The path to the awdur database."""
 
-        self.db: sqlite3.Connection | None = None
-        """The connection to the database, if it's currenly open."""
+        self.stats = RepoStats()
+        """Statistics about the repository."""
 
-        self.user: User = self._init_db(
-            username or os.environ.get("USER", "awdur"), clear_cache
-        )
+        self.user: User = self._init_db(username or getpass.getuser(), clear_cache)
         """The user account to use."""
-
-    def __getstate__(self) -> object:
-        # So that Sphinx can pickle and unpickle this class, we need to mask any fields
-        # that are unpickleable.
-        #
-        # No need to provide __setstate__ as to restore self.db we can just open a fresh
-        # connection when needed.
-        state = self.__dict__.copy()
-        del state["db"]
-        return state
 
     def _init_db(self, username: str, clear_cache: bool) -> User:
         """Initialize the db if needed and return the user's account record."""
 
         if (existing_db := self.dbpath.exists()) and clear_cache:
+            self.logger.debug("Deleting existing database")
             self.dbpath.unlink()
             existing_db = False
 
-        self.logger.debug("Connecting to %r", self.dbpath.as_uri())
-        db = sqlite3.connect(self.dbpath)
+        with self.dbcon() as db:
+            if existing_db:
+                self.logger.debug("Using existing database")
+                # TODO: Validate db structure.
+            else:
+                self.logger.debug("Configuring blank database")
+                _ = db.executescript(SCHEMA.read_text())
+                self.logger.debug("Applied schema")
 
-        if existing_db:
-            # TODO: Validate db structure.
-            pass
-        else:
-            _ = db.executescript(SCHEMA.read_text())
+                for conf in [
+                    Config("aux-schema", "2015-01-24"),
+                    Config("content-schema", "2"),
+                    Config("hash-policy", "2"),
+                    Config("project-code", gen_project_code()),
+                    Config("server-code", value=gen_server_code()),
+                ]:
+                    self.logger.debug("set: %r", conf)
+                    _ = conf.insert(db)
 
-            for conf in [
-                Config("aux-schema", "2015-01-24"),
-                Config("content-schema", "2"),
-                Config("hash-policy", "2"),
-                Config("project-code", gen_project_code()),
-                Config("server-code", value=gen_server_code()),
-            ]:
-                _ = conf.insert(db)
+                db.commit()
 
-            db.commit()
+            if (user := User.find(db, login=username)) is None:
+                user = User(
+                    username,
+                    cap="s",
+                    info=username,
+                    mtime=dt.datetime.now(tz=UTC),
+                ).insert(db)
+                db.commit()
+            self.logger.debug("user: %r", user.login)
 
-        if (user := User.find(db, login=username)) is None:
-            user = User(
-                username,
-                cap="s",
-                info=username,
-                mtime=dt.datetime.now(tz=UTC),
-            ).insert(db)
-            db.commit()
-
-        # Release the connection
-        db.close()
         return user
 
     @contextmanager
     def dbcon(self):
-        """A context manager for accessing the database connection.
+        """A context manager for connecting to the database."""
+        self.logger.debug("Connecting to %r", self.dbpath.as_uri())
+        db = sqlite3.connect(self.dbpath)
 
-        If we currently have a long-lived connection (i.e. self.db is set) use that.
-        Otherwise create an ad-hoc connection that only lives as long as the context
-        manager.
-        """
-        if self.db is None:
-            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
-            db = sqlite3.connect(self.dbpath)
+        yield db
 
-            yield db
-
-            self.logger.debug("Closing connection to %r", self.dbpath.as_uri())
-            db.close()
-        else:
-            yield self.db
+        self.logger.debug("Closing connection to %r", self.dbpath.as_uri())
+        db.close()
 
     @property
     def updating(self) -> bool:
-        return self.manifest is not None and self.rcvfrom is not None
+        return self.manifest_builder is not None
 
-    def set_file_properties(
-        self,
-        filename: str,
-        project: str,
-        permissions: FilePermissions | None = None,
-        template: str | None = None,
-        revision: str = "1",
-    ) -> Blob | None:
-        """Set additional properties for the given filename.
-
-        Filename can be a glob-style pattern
-
-        Parameters
-        ----------
-        filename
-           An exact filename, or a filename glob pattern to apply the properties to
-
-        project
-           The project name
-
-        permissions
-           If set, set the file's permissions
-
-        template
-           If set, use the given template name
-
-        revision
-           The revision at which the settings apply.
-        """
-        lines: list[str] = []
-        if template is not None:
-            lines.append(f"template: {template}")
-
-        if permissions is not None:
-            lines.append(f"permissions: {permissions}")
-
-        if (content := "\n".join(lines)) == "":
-            # Nothing to do
-            return None
-
-        # If given an exact filename, then we can set the properties directly.
-        fpath = f"project/{project}/setting/{filename}/{revision}"
-        return self._add_blob(fpath, content)
-
-    def add_src(self, src: str, filename: str) -> Blob | None:
-        """Add a src file.
-
-        Parameters
-        ----------
-        src
-           The source to be added
-
-        filename
-           The path containing the source.
-        """
-        fpath = f"src/{filename}"
-        return self._add_blob(fpath, src)
-
-    def add_fragment(
-        self,
-        code: str,
-        filename: str,
-        project: str,
-        revision: str = "1",
-        index: int = -1,
-        slot: str = "content",
-    ):
-        """Add a code fragment to a project.
-
-        Parameters
-        ----------
-        code
-           The code fragment itself.
-
-        filename
-           The filename within the project to associate the fragment with.
-
-        project
-           The project's name.
-
-        revision
-           The revision to associate the fragment with.
-
-        slot
-           The slot to associate the fragment with.
-
-        index
-           The index at which the fragment should be inserted
-        """
-        if self.manifest is None:
-            raise RuntimeError("Unable to add code fragment, update not in progress")
-
-        prefix = f"project/{project}/file/{filename}/{slot}/{revision}/"
-        if index == -1:
-            # Look at existing files to see what slot index we should use
-            idx = len([f for f in self.manifest.files if f.startswith(prefix)])
-        else:
-            # TODO: Validate index is not taken.
-            idx = index
-
-        fpath = f"{prefix}{idx}"
-        return self._add_blob(fpath, code)
-
-    def add_template(self, name: str, content: str, project: str):
-        """Define a new code template for a project.
-
-        Parameters
-        ----------
-        name
-           The name of the template
-
-        code
-           The content of the template
-
-        project
-           The project's name.
-        """
-        fpath = f"project/{project}/template/{name}"
-        return self._add_blob(fpath, content)
-
-    def get_blob(
-        self, *, uuid: str | None = None, rid: int | None = None
-    ) -> Blob | None:
-        """Return the blob with the given uuid or rid, if known"""
-        with self.dbcon() as db:
-            blob = Blob.find(db, uuid=uuid, rid=rid)
-
-        return blob
-
-    def _add_blob(self, fpath: str, content: str):
-        """Add the given blob to the project"""
-        if self.manifest is None or self.rcvfrom is None or self.db is None:
-            raise RuntimeError("Unable to add blob to project, update not in progress")
-
-        blob = Blob.create(content, self.rcvfrom.rcvid)
-
-        # we may have already recorded this blob
-        if (existing := Blob.find(self.db, uuid=blob.uuid)) is not None:
-            self.logger.debug("F %s %r, up to date.", fpath, existing)
-            return
-
-        updated = blob.insert(self.db)
-        self.logger.debug("F %s %r, updated.", fpath, updated)
-
-        self.manifest.add_file(pathlib.Path(fpath), blob)
-        return updated
-
-    def start_update(self, comment: str, date: dt.datetime | None = None):
+    def start_update(
+        self, comment: str, date: dt.datetime | None = None
+    ) -> AwdurManifestBuilder:
         """Start a new project update."""
 
-        if self.manifest is not None or self.rcvfrom is not None:
+        if self.manifest_builder is not None:
             self.abort_update()
             raise RuntimeError(
                 "Unable to start project update, update already in progress"
             )
 
-        if self.db is None:
-            self.logger.debug("Connecting to %r", self.dbpath.as_uri())
-            self.db = sqlite3.connect(self.dbpath)
-
         now = date or dt.datetime.now(tz=UTC)
 
-        if (rid := self.get_data_version()) is None:
+        if (previous_manifest := self.get_awdur_manifest()) is None:
             # Create the root manifest
-            self.manifest = Manifest(
+            self.manifest_builder = pending_manifest = AwdurManifestBuilder.new(
+                self.dbpath.as_uri(), comment=comment, date=now, user=self.user
+            )
+            _ = pending_manifest.add_tag("branch", "trunk", propagate=True)
+            _ = pending_manifest.add_tag("sym-trunk", propagate=True)
+            _ = pending_manifest.add_tag("source", "awdur", propagate=True)
+
+        else:
+            self.manifest_builder = pending_manifest = AwdurManifestBuilder.update(
+                self.dbpath.as_uri(),
+                previous_manifest,
                 comment=comment,
                 date=now,
-                user=self.user.login,
-                tags=[
-                    Tag("*", "branch", "*", "trunk"),
-                    Tag("*", "sym-trunk", "*"),
-                    Tag("*", "source", "*", "awdur"),
-                ],
-            )
-            self.logger.debug("Starting first update")
-        else:
-            # Derive from latest manifest
-            if (mblob := Artifact.find(self.db, rid=rid)) is None:
-                raise RuntimeError(f"Unable to load manifest blob rid={rid}")
-
-            previous = Manifest.fromblob(mblob)
-            self.manifest = previous.make_update(
-                comment=comment, date=now, user=self.user.login
+                user=self.user,
             )
 
-            self.logger.debug("Starting update to %r", previous)
-
-        # Create the recvfrom
-        self.rcvfrom = Rcvfrom.create(self.user.uid, mtime=now).insert(self.db)
-        self.logger.debug("rcvid=%s", self.rcvfrom.rcvid)
-        return
+        return pending_manifest
 
     def abort_update(self):
         """Abort the update."""
-        self.logger.debug("Aborting update")
+        if self.manifest_builder is not None:
+            self.manifest_builder.abort()
+            self.manifest_builder = None
 
-        if self.db is not None:
-            self.db.rollback()
-            self.db.close()
-            self.db = None
-
-        self.manifest = None
-        self.rcvfrom = None
-
-    def commit_update(self):
-        """Commit changes to the db."""
-
-        if self.manifest is None or self.rcvfrom is None:
-            self.logger.warning("Commit called outside of an update, rolling back db")
-            if self.db is not None:
-                self.db.rollback()  # to be safe
-                self.db.close()
-                self.db = None
-            return
-
-        if self.db is None:
-            raise RuntimeError("Unable to commit update, no db connection")
-
-        # Record the projects defined.
-        projects = sorted(
-            {p.split("/")[1] for p in self.manifest.files if p.startswith("project/")}
-        )
-        self.manifest.add_tag(Tag("+", "projects", "*", ",".join(projects)))
-
-        # Add the manifest.
-        blob = self.manifest.toblob(self.rcvfrom.rcvid).insert(self.db)
-        self.logger.debug("Manifest: %r\n%s", blob, blob.text)
-
-        self.db.commit()
-        self.db.close()
-        self.db = None
-
-        self.manifest = None
-        self.rcvfrom = None
         self.rebuild_metadata()
-        self.logger.debug("Update complete.")
 
-    def get_data_version(self, revision: str | None = None) -> int | None:
-        """Get the rid of the manifest representing the internal awdur data structure
-        at the given revision.
+    def commit_update(self) -> Blob | None:
+        """Commit changes to the db.
+
+        This method finalises the manifest, inserts it to the database and commits the
+        transaction.
+
+        Returns
+        -------
+        Blob | None
+           The blob containing the committed manifest, if successful
+        """
+
+        if (self.manifest_builder) is None:
+            raise RuntimeError("Cannot commit update, no update in progress")
+
+        blob = self.manifest_builder.finish()
+        self.rebuild_metadata()
+        self.manifest_builder = None
+
+        return blob
+
+    def rebuild_metadata(self):
+        """Call out to fossil to rebuild the metadata tables."""
+
+        # The majority of the fossil db can be derived from the sequence of artifacts.
+        # Rather than attempt to keep up with implementation details of the tool, just
+        # run the command provided for this purpose
+        result = subprocess.run(
+            ["fossil", "rebuild", "--stats", str(self.dbpath)], capture_output=True
+        )
+        if result.returncode != 0:
+            self.logger.error(result.stderr.decode("utf8"))
+            raise RuntimeError("Unable to rebuild metadata")
+        else:
+            for line in result.stdout.decode("utf8").splitlines():
+                if ":" not in line:
+                    continue
+                field, value = line.split(":")
+                field = field.strip().lower()
+
+                if hasattr(self.stats, field):
+                    try:
+                        count = int(value.strip())
+                    except Exception as exc:
+                        count = 0
+                        self.logger.error("Unable to parse value: %r", value)
+
+                    setattr(self.stats, field, count)
+
+            self.logger.debug("Rebuilt repository metadata: %r", self.stats)
+
+    def get_awdur_manifest(self, revision: str | None = None) -> Artifact | None:
+        """Get the manifest representing awdur's internal state at the given revision.
 
         Parameters
         ----------
         revision
            Not currently implemented, this function always returns the latest version.
+
+        Returns
+        -------
+        AwdurManifest | None
+           The awdur manifest at the requested revision, or None if not found.
         """
         with self.dbcon() as db:
             cursor = db.execute(
-                "SELECT rid FROM awdur_data_revisions ORDER BY rid DESC LIMIT 1",
+                "SELECT rid FROM awdur_manifests ORDER BY rid DESC LIMIT 1",
             )
-            if (row := cursor.fetchone()) is not None:
-                return row[0]
-            return None
+            if (row := cursor.fetchone()) is None:
+                return None
+
+            rid = row[0]
+            if (blob := Artifact.find(db, rid=rid)) is None:
+                raise RuntimeError(
+                    f"Unable to get awdur manifest, blob rid={rid} not found"
+                )
+
+            return blob
 
     def export(self, project: str, exporter: ProjectExporter, output: pathlib.Path):
         """Export the given project using the given exporter."""
 
-        if self.manifest is not None or self.rcvfrom is not None:
+        if self.manifest_builder is not None:
             raise RuntimeError("Cannot export a project while updating.")
 
         with self.dbcon() as db:
-            if (rid := self.get_data_version()) is None:
+            if (blob := self.get_awdur_manifest()) is None:
                 raise RuntimeError("Unable to export project, no projects defined")
 
-            if (mblob := Artifact.find(db, rid=rid)) is None:
-                raise RuntimeError(
-                    f"Unable to export project, failed to load manifest blob rid={rid}"
-                )
-
-            manifest = Manifest.fromblob(mblob)
-            self.render_project(project, manifest)
+            self.render_project(project, Manifest.fromblob(blob))
 
         exporter.export(project, self, output)
 
@@ -480,7 +348,7 @@ class ProjectManager:
     def render_project(self, project: str, manifest: Manifest):
         """Render a project's code from the given manifest."""
 
-        if self.manifest is not None or self.rcvfrom is not None:
+        if self.manifest_builder is not None:
             raise RuntimeError("Cannot render a project while updating.")
 
         with self.dbcon() as db:
@@ -548,22 +416,6 @@ class ProjectManager:
                 db.commit()
 
         self.rebuild_metadata()
-
-    def rebuild_metadata(self):
-        """Call out to fossil to rebuild the metadata tables."""
-
-        # The majority of the fossil db can be derived from the sequence of artifacts.
-        # Rather than attempt to keep up with implementation details of the tool, just
-        # run the command provided for this purpose
-        self.logger.debug("Rebuilding metadata...")
-        result = subprocess.run(
-            ["fossil", "rebuild", "--stats", str(self.dbpath)], capture_output=True
-        )
-        if result.returncode != 0:
-            self.logger.error(result.stderr.decode("utf8"))
-            raise RuntimeError("Unable to rebuild metadata")
-        else:
-            self.logger.debug(result.stdout.decode("utf8"))
 
 
 @dataclasses.dataclass

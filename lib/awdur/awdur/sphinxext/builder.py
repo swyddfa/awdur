@@ -12,7 +12,7 @@ if typing.TYPE_CHECKING:
 
     from docutils import nodes
 
-    from awdur.project import ProjectManager
+    from awdur.project import RepoManager
 
 
 class AwdurBuilder(Builder):
@@ -52,7 +52,7 @@ class AwdurBuilder(Builder):
     def finish(self):
         """Actually write all the code to disk"""
 
-        manager: ProjectManager = self.env.settings["awdur_project_manager"]
+        manager: RepoManager = self.env.settings["awdur_project_manager"]
         exporter = DirectoryExporter(logger=manager.logger, existing_files="overwrite")
 
         for project in manager.get_project_names():

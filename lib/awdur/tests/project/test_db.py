@@ -70,6 +70,7 @@ def test_apply_delta(
                     microsecond=579000,
                     tzinfo=UTC,
                 ),
+                rchecksum="d41d8cd98f00b204e9800998ecf8427e",
                 tags=[
                     Tag("*", "branch", "*", "trunk"),
                     Tag("*", "sym-trunk", "*"),
@@ -134,21 +135,3 @@ def test_manifest_fromtext(lines: list[str], expected: Manifest):
     """Ensure that we can parse manifests correctly."""
     actual = Manifest.fromtext("\n".join(lines) + "\n")
     assert actual == expected
-
-
-@pytest.mark.parametrize(
-    "manifest,expected",
-    [
-        (Manifest(), "a check-in comment is required"),
-        (Manifest(comment="comment"), "a check-in date is required"),
-        (
-            Manifest(comment="comment", date=dt.datetime.now(tz=UTC)),
-            "a check-in must be associated with a user",
-        ),
-    ],
-)
-def test_manifest_validation(manifest: Manifest, expected: str):
-    """Ensure that we can identify invalid manifests."""
-
-    with pytest.raises(ValueError, match=expected):
-        _ = manifest.build()

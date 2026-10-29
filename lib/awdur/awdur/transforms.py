@@ -10,10 +10,10 @@ from awdur.directives import code_block
 from awdur.directives import file
 from awdur.directives import project
 from awdur.project import Blob
-from awdur.project import ProjectManager
+from awdur.project import RepoManager
 
 if typing.TYPE_CHECKING:
-    from awdur.project import ProjectManager
+    from awdur.project import RepoManager
 
 
 class CodeMetdataVisitor(nodes.SparseNodeVisitor):
@@ -111,7 +111,7 @@ class UpdateProjectTransform(Transform):
 
     def apply(self):
         settings = self.document.settings
-        manager: ProjectManager = settings.awdur_project_manager
+        manager: RepoManager = settings.awdur_project_manager
 
         if in_sphinx_build := "env" in dir(settings):
             # We are running in a Sphinx build.
@@ -140,7 +140,7 @@ class UpdateProjectTransform(Transform):
             # 'write-started' event
             manager.commit_update()
 
-    def update_files(self, manager: ProjectManager):
+    def update_files(self, manager: RepoManager):
         """Update based on all the file nodes in the document."""
 
         for node in self.document.findall(file):
@@ -161,7 +161,7 @@ class UpdateProjectTransform(Transform):
                 template=node.attributes.get("use-template"),
             )
 
-    def update_codeblocks(self, manager: ProjectManager):
+    def update_codeblocks(self, manager: RepoManager):
         """Update based on all the code blocks in the document."""
         for node in self.document.findall(code_block):
             if (project_name := node.attributes.get("in-project")) is None:
@@ -201,7 +201,7 @@ class RenderProjectTransform(Transform):
 
     def apply(self):
         try:
-            manager: ProjectManager = self.document.settings.awdur_project_manager
+            manager: RepoManager = self.document.settings.awdur_project_manager
         except AttributeError:
             # When registered as a post transform in Sphinx, there's no guarantee that
             # every document will have the `awdur_project_manager` set.

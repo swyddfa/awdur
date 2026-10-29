@@ -271,16 +271,16 @@ CREATE VIEW awdur_project_revisions AS
   GROUP BY rid;
 
 
--- awdur_data_revisions
+-- awdur_manifests
 --
--- Manifest entries representing awdur's internal data structure
+-- Manifest entries representing awdur's internal project state
 -- should be assigned the following properties:
 --
 -- T *source * awdur
 --
 -- Using the property view defined above, this constructs a view that
 -- gives us a timeline for evolution of the internal data structure.
-CREATE VIEW awdur_data_revisions AS
+CREATE VIEW awdur_manifests AS
   SELECT
     rid
   FROM awdur_properties WHERE tagname='source' and value='awdur';
