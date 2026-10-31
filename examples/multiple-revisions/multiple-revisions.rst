@@ -1,7 +1,7 @@
 Multiple Revisions
 ==================
 
-:in-file: fizzbuzz,py
+:in-file: fizzbuzz.py
 
 No software is perfect and chances are the code you write will need to evolve over time.
 However, it can still be useful to refer to older versions of the code as it will often be simpler and still capture the main ideas present in the newer, more complicated code.
@@ -68,4 +68,3 @@ awdur supports alphanumeric revisions like you might see in a "folgezettel" allo
            print('buzz')
        else:
            print(i)
-

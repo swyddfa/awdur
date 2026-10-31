@@ -198,12 +198,16 @@ class ManifestBuilder:
         """Rollback and abort the update."""
         self.logger.debug("Aborting update")
         self.db.rollback()
+
+        self.logger.debug("Closing connection to %r", self.db)
         self.db.close()
 
     def commit(self):
         """Commit changes and close the db connection."""
         self.logger.debug("Committing update")
         self.db.commit()
+
+        self.logger.debug("Closing connection to %r", self.db)
         self.db.close()
 
     def finish(self) -> Blob | None:
@@ -426,7 +430,7 @@ class AwdurManifestBuilder(ManifestBuilder):
         permissions: FilePermissions | None = None,
         template: str | None = None,
         revision: str = "1",
-    ) -> Blob | None:
+    ) -> tuple[Manifest.File, FileStatus]:
         """Set additional properties for the given filename.
 
         Parameters
@@ -453,15 +457,14 @@ class AwdurManifestBuilder(ManifestBuilder):
         if permissions is not None:
             lines.append(f"permissions: {permissions}")
 
-        if (content := "\n".join(lines)) == "":
-            # Nothing to do
-            return None
+        content = "\n".join(lines)
 
-        # If given an exact filename, then we can set the properties directly.
         fpath = f"project/{project}/setting/{filename}/{revision}"
-        return self._add_blob(fpath, content)
+        return self.add_file(fpath, content)
 
-    def add_template(self, name: str, content: str, project: str):
+    def add_template(
+        self, name: str, content: str, project: str
+    ) -> tuple[Manifest.File, FileStatus]:
         """Define a new code template for a project.
 
         Parameters
@@ -476,4 +479,4 @@ class AwdurManifestBuilder(ManifestBuilder):
            The project's name.
         """
         fpath = f"project/{project}/template/{name}"
-        return self._add_blob(fpath, content)
+        return self.add_file(fpath, content)

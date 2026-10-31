@@ -49,6 +49,7 @@ from .db import Rcvfrom
 from .db import Tag
 from .db import User
 from .manifest import AwdurManifestBuilder
+from .manifest import ManifestBuilder
 
 if typing.TYPE_CHECKING:
     from typing import Any
@@ -96,14 +97,14 @@ class RepoManager:
         self,
         *,
         data_dir: pathlib.Path | None = None,
-        clear_cache: bool = True,
+        clear_cache: bool = False,
         logger: logging.Logger | None = None,
         username: str | None = None,
     ):
         self.logger: logging.Logger = logger or logging.getLogger(__name__)
         """The logger instance to use."""
 
-        self.manifest_builder: AwdurManifestBuilder | None = None
+        self.manifest: AwdurManifestBuilder | None = None
         """If set, signals that the project has started an update transaction."""
 
         self.dbpath: pathlib.Path = (
@@ -116,6 +117,16 @@ class RepoManager:
 
         self.user: User = self._init_db(username or getpass.getuser(), clear_cache)
         """The user account to use."""
+
+    def __getstate__(self) -> object:
+        # So that Sphinx can pickle and unpickle this class, we need to mask any fields
+        # that are unpickleable.
+        state = self.__dict__.copy()
+
+        # Pickling the manifest builder does not make sense, so we should be safe to
+        # just ignore it.
+        state["manifest"] = None
+        return state
 
     def _init_db(self, username: str, clear_cache: bool) -> User:
         """Initialize the db if needed and return the user's account record."""
@@ -169,16 +180,12 @@ class RepoManager:
         self.logger.debug("Closing connection to %r", self.dbpath.as_uri())
         db.close()
 
-    @property
-    def updating(self) -> bool:
-        return self.manifest_builder is not None
-
     def start_update(
         self, comment: str, date: dt.datetime | None = None
     ) -> AwdurManifestBuilder:
         """Start a new project update."""
 
-        if self.manifest_builder is not None:
+        if self.manifest is not None:
             self.abort_update()
             raise RuntimeError(
                 "Unable to start project update, update already in progress"
@@ -188,29 +195,34 @@ class RepoManager:
 
         if (previous_manifest := self.get_awdur_manifest()) is None:
             # Create the root manifest
-            self.manifest_builder = pending_manifest = AwdurManifestBuilder.new(
-                self.dbpath.as_uri(), comment=comment, date=now, user=self.user
+            self.manifest = pending_manifest = AwdurManifestBuilder.new(
+                self.dbpath.as_uri(),
+                comment=comment,
+                date=now,
+                user=self.user,
+                logger=self.logger,
             )
             _ = pending_manifest.add_tag("branch", "trunk", propagate=True)
             _ = pending_manifest.add_tag("sym-trunk", propagate=True)
             _ = pending_manifest.add_tag("source", "awdur", propagate=True)
 
         else:
-            self.manifest_builder = pending_manifest = AwdurManifestBuilder.update(
+            self.manifest = pending_manifest = AwdurManifestBuilder.update(
                 self.dbpath.as_uri(),
                 previous_manifest,
                 comment=comment,
                 date=now,
                 user=self.user,
+                logger=self.logger,
             )
 
         return pending_manifest
 
     def abort_update(self):
         """Abort the update."""
-        if self.manifest_builder is not None:
-            self.manifest_builder.abort()
-            self.manifest_builder = None
+        if self.manifest is not None:
+            self.manifest.abort()
+            self.manifest = None
 
         self.rebuild_metadata()
 
@@ -226,12 +238,12 @@ class RepoManager:
            The blob containing the committed manifest, if successful
         """
 
-        if (self.manifest_builder) is None:
+        if (self.manifest) is None:
             raise RuntimeError("Cannot commit update, no update in progress")
 
-        blob = self.manifest_builder.finish()
+        blob = self.manifest.finish()
         self.rebuild_metadata()
-        self.manifest_builder = None
+        self.manifest = None
 
         return blob
 
@@ -245,7 +257,7 @@ class RepoManager:
             ["fossil", "rebuild", "--stats", str(self.dbpath)], capture_output=True
         )
         if result.returncode != 0:
-            self.logger.error(result.stderr.decode("utf8"))
+            self.logger.error(result.stderr.decode("utf8").strip())
             raise RuntimeError("Unable to rebuild metadata")
         else:
             for line in result.stdout.decode("utf8").splitlines():
@@ -296,15 +308,14 @@ class RepoManager:
     def export(self, project: str, exporter: ProjectExporter, output: pathlib.Path):
         """Export the given project using the given exporter."""
 
-        if self.manifest_builder is not None:
+        if self.manifest is not None:
             raise RuntimeError("Cannot export a project while updating.")
 
         with self.dbcon() as db:
             if (blob := self.get_awdur_manifest()) is None:
                 raise RuntimeError("Unable to export project, no projects defined")
 
-            self.render_project(project, Manifest.fromblob(blob))
-
+        self.render_project(project, blob)
         exporter.export(project, self, output)
 
     def get_project_names(self) -> list[str]:
@@ -321,9 +332,8 @@ class RepoManager:
 
     def get_project_version(
         self, project: str, revision: str | None = None
-    ) -> int | None:
-        """Get the rid of the manifest representing the given project at the given
-        revision.
+    ) -> Artifact | None:
+        """Get the manifest representing the given project at the given revision.
 
         Parameters
         ----------
@@ -341,79 +351,81 @@ class RepoManager:
                 "ORDER BY rev, rid DESC LIMIT 1",
                 (project, revision or "%"),
             )
-            if (row := cursor.fetchone()) is not None:
-                return row[0]
-            return None
+            if (row := cursor.fetchone()) is None:
+                return None
 
-    def render_project(self, project: str, manifest: Manifest):
+            rid = row[0]
+            if (blob := Artifact.find(db, rid=rid)) is None:
+                raise RuntimeError(
+                    f"Unable to get manifest for project {project!r}, "
+                    f"blob rid={rid} not found"
+                )
+
+            return blob
+
+    def render_project(self, project: str, blob: Artifact | Blob):
         """Render a project's code from the given manifest."""
 
-        if self.manifest_builder is not None:
+        if self.manifest is not None:
             raise RuntimeError("Cannot render a project while updating.")
 
-        with self.dbcon() as db:
-            env = Environment(loader=ProjectTemplateLoader(project, manifest, db))
-            timeline = ProjectTimeline.from_manifest(manifest, project)
-            self.logger.debug("Timeline: %s", timeline)
+        manifest = Manifest.fromblob(blob)
+        timeline = ProjectTimeline.from_manifest(manifest, project)
+        self.logger.debug("Timeline: %s", timeline)
 
-            project_manifest: Manifest | None = None
+        previous_manifest: Artifact | Blob | None = None
 
-            for rev, fileset in timeline:
-                self.logger.debug("Exporting revision: %r", rev)
-                comment = f"Project export"
-                date = dt.datetime.now(tz=UTC)
+        for rev, fileset in timeline:
+            self.logger.debug("Exporting revision: %r", rev)
+            comment = f"Project export"
+            date = dt.datetime.now(tz=UTC)
 
-                if project_manifest is None:
-                    # first check-in
-                    project_manifest = Manifest(
-                        comment=comment,
-                        date=date,
-                        user=self.user.login,
-                        tags=[
-                            Tag("*", "branch", "*", project),
-                            Tag("*", f"sym-{project}", "*"),
-                            Tag("*", "source", "*", manifest.uuid),
-                        ],
-                    )
-                else:
-                    project_manifest = project_manifest.make_update(
-                        comment=comment, date=date, user=self.user.login
-                    )
+            if previous_manifest is None:
+                # first check-in
+                builder = ManifestBuilder.new(
+                    self.dbpath.as_uri(),
+                    comment=comment,
+                    date=date,
+                    user=self.user,
+                    logger=self.logger,
+                )
+                builder.add_tag("branch", project, propagate=True)
+                builder.add_tag(f"sym-{project}", propagate=True)
+                builder.add_tag("source", blob.uuid)
 
-                # Create the 'transaction' for this revision
-                project_manifest.add_tag(Tag("+", "rev", "*", rev))
-                rcvfrom = Rcvfrom.create(self.user.uid, mtime=date).insert(db)
+            else:
+                builder = ManifestBuilder.update(
+                    self.dbpath.as_uri(),
+                    previous_manifest,
+                    comment=comment,
+                    date=date,
+                    user=self.user,
+                    logger=self.logger,
+                )
 
-                # Render each file in this revision
-                for filename, file in fileset:
-                    slots, settings = file.resolve(db)
-                    context: dict[str, Any] = {
-                        "output": {"path": pathlib.Path(filename)},
-                        "slots": slots,
-                    }
-                    insert_fn = make_code_inserter(context)
+            builder.add_tag("rev", str(rev))
+            env = Environment(
+                loader=ProjectTemplateLoader(project, manifest, builder.db)
+            )
+            # Render each file in this revision
+            for filename, file in fileset:
+                slots, settings = file.resolve(builder.db)
+                context: dict[str, Any] = {
+                    "output": {"path": pathlib.Path(filename)},
+                    "slots": slots,
+                }
+                insert_fn = make_code_inserter(context)
 
-                    template = env.get_template(settings.get("template", "default"))
-                    content = template.render(**context, insert=insert_fn)
+                template = env.get_template(settings.get("template", "default"))
+                content = template.render(**context, insert=insert_fn)
+                _ = builder.add_file(
+                    filename,
+                    content,
+                    permissions=settings.get("permissions"),
+                )
 
-                    blob = Blob.create(content, rcvfrom.rcvid)
-                    if (existing := Blob.find(db, uuid=blob.uuid)) is not None:
-                        blob = existing
-                        self.logger.debug("F %s %r, existing blob", filename, blob)
-                    else:
-                        blob = blob.insert(db)
-                        self.logger.debug("F %s, %r, new blob", filename, blob)
-
-                    project_manifest.add_file(
-                        pathlib.Path(filename),
-                        blob,
-                        permissions=settings.get("permissions"),
-                    )
-
-                # Commit the revision
-                blob = project_manifest.toblob(rcvfrom.rcvid).insert(db)
-                self.logger.debug("Manifest: %r\n%s", blob, blob.text)
-                db.commit()
+            # Commit the revision
+            previous_manifest = builder.finish()
 
         self.rebuild_metadata()
 
@@ -511,7 +523,7 @@ class ProjectTimeline:
         # First convert the manifest into a set of files at each revision.
         prefix = f"project/{project_name}/file/"
         for path, uuid in (
-            (p.removeprefix(prefix), b.blob.uuid)
+            (p.removeprefix(prefix), b.blob)
             for p, b in manifest.files.items()
             if p.startswith(prefix)
         ):
@@ -525,7 +537,7 @@ class ProjectTimeline:
         # Now map the settings to each file.
         prefix = f"project/{project_name}/setting/"
         for path, uuid in (
-            (p.removeprefix(prefix), b.blob.uuid)
+            (p.removeprefix(prefix), b.blob)
             for p, b in manifest.files.items()
             if p.startswith(prefix)
         ):
@@ -603,7 +615,7 @@ class ProjectTemplateLoader(BaseLoader):
 
             raise TemplateNotFound(template)
 
-        if (blob := Artifact.find(self.db, uuid=file.blob.uuid)) is None:
+        if (blob := Artifact.find(self.db, uuid=file.blob)) is None:
             raise TemplateNotFound(template)
 
         self._templates[template] = tmpl = (blob.text, None, None)
@@ -619,11 +631,13 @@ def folgzettel_sort(item: str | tuple[str, ...]) -> tuple[int | str, ...]:
     else:
         value = item
 
+    fns = [int, str]
     prefix, *rest = re.split(r"(\d+)", value)
     if prefix != "":
-        raise ValueError("Folgzettel numbers must start with a digit")
+        fns = reversed(fns)
+        rest = [prefix, *rest]
 
-    converters = itertools.cycle([int, str])
+    converters = itertools.cycle(fns)
     return tuple(convert(value) for convert, value in zip(converters, rest))
 
 

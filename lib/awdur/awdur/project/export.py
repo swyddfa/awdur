@@ -30,16 +30,10 @@ class DirectoryExporter:
         self.logger = logger or logging.getLogger(__name__)
         self.existing_files = existing_files
 
-    def export(self, project: str, manager: RepoManager, output: pathlib.Path):
+    def export(self, project: str, repo: RepoManager, output: pathlib.Path):
         """Export the project to the given location."""
 
-        if (rid := manager.get_project_version(project)) is None:
-            self.logger.error(
-                "Unable to export project %r, project does not exist", project
-            )
-            return
-
-        if (blob := manager.get_blob(rid=rid)) is None:
+        if (blob := repo.get_project_version(project)) is None:
             self.logger.error(
                 "Unable to export project %r, project does not exist", project
             )
@@ -54,7 +48,7 @@ class DirectoryExporter:
         cmd: list[str] = [
             "fossil",
             "open",
-            str(manager.dbpath),
+            str(repo.dbpath),
             blob.uuid,
             "--workdir",
             str(output),

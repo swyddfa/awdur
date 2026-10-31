@@ -73,19 +73,19 @@ class Artifact:
     size: int | None = dataclasses.field(default=None)
     """The size of the uncompressed artifact"""
 
-    atype: int | None = dataclasses.field(default=None)
+    atype: int = dataclasses.field(default=1)
     """The type of artifact (currently always 1)"""
 
     srcid: int | None = dataclasses.field(default=None)
     """If this is a delta artifact, this stores the base blob's rid."""
 
-    uuid: str | None = dataclasses.field(default=None)
+    uuid: str = dataclasses.field(default="")
     """The artifact's hash"""
 
-    content: bytes | None = dataclasses.field(default=None)
+    content: bytes = dataclasses.field(default=b"")
     """The content itself."""
 
-    _text: str | None = dataclasses.field(default=None, init=False)
+    _text: str = dataclasses.field(default="", init=False)
     """Internal cache of the uncompressed text of the blob, if known"""
 
     def __repr__(self):
@@ -147,10 +147,10 @@ class Artifact:
     @property
     def text(self) -> str:
         """Return the uncompressed text held in a blob."""
-        if self._text is not None:
+        if self._text != "":
             return self._text
 
-        if self.content is None:
+        if self.content == b"":
             return ""
 
         self._text = self.content.decode("utf8")
