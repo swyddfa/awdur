@@ -25,7 +25,6 @@ import getpass
 import hashlib
 import itertools
 import logging
-import os
 import pathlib
 import re
 import sqlite3
@@ -45,8 +44,6 @@ from .db import Artifact
 from .db import Blob
 from .db import Config
 from .db import Manifest
-from .db import Rcvfrom
-from .db import Tag
 from .db import User
 from .manifest import AwdurManifestBuilder
 from .manifest import ManifestBuilder
@@ -112,7 +109,7 @@ class RepoManager:
         ) / f"awdur.fossil"
         """The path to the awdur database."""
 
-        self.stats = RepoStats()
+        self.stats: RepoStats = RepoStats()
         """Statistics about the repository."""
 
         self.user: User = self._init_db(username or getpass.getuser(), clear_cache)
@@ -345,23 +342,7 @@ class RepoManager:
            If ``None``, return the latest revision.
         """
         with self.dbcon() as db:
-            cursor = db.execute(
-                "SELECT rid FROM awdur_project_revisions "
-                "WHERE project = ? AND rev LIKE ? "
-                "ORDER BY rev, rid DESC LIMIT 1",
-                (project, revision or "%"),
-            )
-            if (row := cursor.fetchone()) is None:
-                return None
-
-            rid = row[0]
-            if (blob := Artifact.find(db, rid=rid)) is None:
-                raise RuntimeError(
-                    f"Unable to get manifest for project {project!r}, "
-                    f"blob rid={rid} not found"
-                )
-
-            return blob
+            return _get_project_manifest(db, project, revision)
 
     def render_project(self, project: str, blob: Artifact | Blob):
         """Render a project's code from the given manifest."""
@@ -391,7 +372,6 @@ class RepoManager:
                 )
                 builder.add_tag("branch", project, propagate=True)
                 builder.add_tag(f"sym-{project}", propagate=True)
-                builder.add_tag("source", blob.uuid)
 
             else:
                 builder = ManifestBuilder.update(
@@ -403,7 +383,9 @@ class RepoManager:
                     logger=self.logger,
                 )
 
+            builder.add_tag("source", blob.uuid)
             builder.add_tag("rev", str(rev))
+
             env = Environment(
                 loader=ProjectTemplateLoader(project, manifest, builder.db)
             )
@@ -424,8 +406,20 @@ class RepoManager:
                     permissions=settings.get("permissions"),
                 )
 
-            # Commit the revision
-            previous_manifest = builder.finish()
+            # Check to see if there is an existing manifest at this revision.
+            if (pblob := _get_project_manifest(builder.db, project, rev)) is not None:
+                existing_manifest = Manifest.fromblob(pblob)
+
+                # Only commit the manifest if the repo checksums are different.
+                if existing_manifest.rchecksum != builder.calc_rchecksum():
+                    previous_manifest = builder.finish()
+                else:
+                    # Be sure to discard the in progress manifest to release the db connection.
+                    builder.abort()
+                    previous_manifest = pblob
+            else:
+                # Commit the revision
+                previous_manifest = builder.finish()
 
         self.rebuild_metadata()
 
@@ -620,6 +614,45 @@ class ProjectTemplateLoader(BaseLoader):
 
         self._templates[template] = tmpl = (blob.text, None, None)
         return tmpl
+
+
+def _get_project_manifest(
+    db: sqlite3.Connection, project: str, revision: str | None
+) -> Artifact | None:
+    """Return the blob containing the given project's manifest at the given revision.
+
+    Parameters
+    ----------
+    db
+       The database connection to use.
+
+    project
+       The project name to fetch
+
+    revision
+       The revision to retrieve. If not given, the latest revision is returned.
+
+    Returns
+    -------
+    Artifact | None
+       The requested project manifest, if found.
+    """
+    cursor = db.execute(
+        "SELECT rid FROM awdur_project_revisions "
+        "WHERE project = ? AND rev LIKE ? "
+        "ORDER BY rev, rid DESC LIMIT 1",
+        (project, revision or "%"),
+    )
+    if (row := cursor.fetchone()) is None:
+        return None
+
+    rid = row[0]
+    if (blob := Artifact.find(db, rid=rid)) is None:
+        raise RuntimeError(
+            f"Unable to get manifest for project {project!r}, blob rid={rid} not found"
+        )
+
+    return blob
 
 
 def folgzettel_sort(item: str | tuple[str, ...]) -> tuple[int | str, ...]:

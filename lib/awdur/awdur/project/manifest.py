@@ -231,24 +231,7 @@ class ManifestBuilder:
                     "Invalid tag: manifest tags must target '*' (i.e. self)"
                 )
 
-        # Calculate the repo checksum
-        rchecksum = hashlib.md5()
-        for _, file in sorted(self.manifest.files.items(), key=operator.itemgetter(0)):
-            if (file_blob := Artifact.find(self.db, uuid=file.blob)) is None:
-                raise RuntimeError(
-                    "Unable to finish manifest, content for blob "
-                    f"uuid={file.blob!r} not found "
-                )
-
-            text = file_blob.text
-            item = (
-                f"{file.filename}{chr(ASCII.SPACE)}"
-                f"{len(text)}{chr(ASCII.NEWLINE)}"
-                f"{text}"
-            )
-            rchecksum.update(item.encode())
-
-        self.manifest.rchecksum = rchecksum.hexdigest()
+        self.manifest.rchecksum = self.calc_rchecksum()
 
         # Check that a meaningful change has been applied
         if (previous := self.manifest.previous) is not None:
@@ -270,6 +253,26 @@ class ManifestBuilder:
         self.logger.debug("Manifest: %r\n%s", mblob, manifest)
         self.commit()
         return mblob
+
+    def calc_rchecksum(self):
+        """Calculate the repository checksum for the current state of the manifest."""
+        rchecksum = hashlib.md5()
+        for _, file in sorted(self.manifest.files.items(), key=operator.itemgetter(0)):
+            if (file_blob := Artifact.find(self.db, uuid=file.blob)) is None:
+                raise RuntimeError(
+                    "Unable to finish manifest, content for blob "
+                    f"uuid={file.blob!r} not found "
+                )
+
+            text = file_blob.text
+            item = (
+                f"{file.filename}{chr(ASCII.SPACE)}"
+                f"{len(text)}{chr(ASCII.NEWLINE)}"
+                f"{text}"
+            )
+            rchecksum.update(item.encode())
+
+        return rchecksum.hexdigest()
 
 
 class AwdurManifestBuilder(ManifestBuilder):
