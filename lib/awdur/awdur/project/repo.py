@@ -352,9 +352,11 @@ class RepoManager:
 
         manifest = Manifest.fromblob(blob)
         timeline = ProjectTimeline.from_manifest(manifest, project)
-        self.logger.debug("Timeline: %s", timeline)
-
         previous_manifest: Artifact | Blob | None = None
+
+        # The timeline only tracks what's changed between revisions, so as we export we
+        # to Keep a record of all the files so that they accumulate changes.
+        project_files: dict[str, FileSpec] = defaultdict(FileSpec)
 
         for rev, fileset in timeline:
             self.logger.debug("Exporting revision: %r", rev)
@@ -390,7 +392,9 @@ class RepoManager:
                 loader=ProjectTemplateLoader(project, manifest, builder.db)
             )
             # Render each file in this revision
-            for filename, file in fileset:
+            for filename, changes in fileset:
+                file = project_files[filename]
+                file.apply(changes)
                 slots, settings = file.resolve(builder.db)
                 context: dict[str, Any] = {
                     "output": {"path": pathlib.Path(filename)},
@@ -436,6 +440,12 @@ class FileSpec:
 
     settings: list[str] = dataclasses.field(default_factory=list)
     """A list of blob uuids containing settings to be applied."""
+
+    def apply(self, changes: FileSpec):
+        """Apply the changes in the given FileSpec to this FileSpec."""
+        self.slots.update(changes.slots)
+        if len(changes.settings) > 0:
+            self.settings = list(changes.settings)
 
     def resolve(self, db: sqlite3.Connection):
         """Resolve all uuid references and return the actual context."""
@@ -535,8 +545,6 @@ class ProjectTimeline:
             for p, b in manifest.files.items()
             if p.startswith(prefix)
         ):
-            # TODO: This isn't quite right, need to handle propogation of settings to
-            #       later revisions.
             *parts, revision = path.split("/")
             filename = "/".join(parts)
             rev = timeline[revision]
