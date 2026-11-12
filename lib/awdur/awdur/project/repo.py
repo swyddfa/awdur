@@ -358,7 +358,7 @@ class RepoManager:
 
         for rev, fileset in timeline:
             self.logger.debug("Exporting revision: %r", rev)
-            comment = f"Project export"
+            comment = f"Project export: {project} r{rev}"
             date = dt.datetime.now(tz=UTC)
 
             if previous_manifest is None:
@@ -640,7 +640,7 @@ def _get_project_manifest(
     cursor = db.execute(
         "SELECT rid FROM awdur_project_revisions "
         "WHERE project = ? AND rev LIKE ? "
-        "ORDER BY rev, rid DESC LIMIT 1",
+        "ORDER BY rev DESC, rid DESC LIMIT 1",
         (project, revision or "%"),
     )
     if (row := cursor.fetchone()) is None:
