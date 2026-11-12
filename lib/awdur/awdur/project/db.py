@@ -117,12 +117,13 @@ class Artifact:
 
         # Is this a delta blob?
         if (srcid := artifact.srcid) is not None:
-            if (baseline := Blob.find(db, rid=srcid)) is None:
+            # Baseline blobs themselves can be delta compressed!
+            if (baseline := Artifact.find(db, rid=srcid)) is None:
                 raise ValueError(
                     f"Unable to resolve artifact, baseline blob rid={artifact.srcid} not found"
                 )
 
-            base_blob = zlib.decompress(baseline.content[4:])
+            base_blob = baseline.content
             delta_blob = zlib.decompress(artifact.content[4:])
             artifact.content = apply_delta(base_blob, delta_blob)
 
